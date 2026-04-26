@@ -7,7 +7,9 @@ use App\Enums\MetadataRevisionType;
 use App\Filament\Resources\CaptureSessions\CaptureSessionResource;
 use App\Models\CaptureSession;
 use App\Models\MetadataRevision;
+use App\Services\BookCoverOcrService;
 use BackedEnum;
+use Exception;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Filament\Support\Icons\Heroicon;
@@ -27,18 +29,26 @@ class CaptureBook extends Page
     protected static ?int $navigationSort = 5;
 
     public static ?string $title = 'Capture Book';
-    
-    public ?string $frontImageData = null;
 
-    public ?string $backImageData = null;
+    public ?string $frontImageData = null;
 
     public ?int $frontImageWidth = null;
 
     public ?int $frontImageHeight = null;
 
-    public ?int $backImageWidth = null;
+    public ?string $isbnBarcodeValue = null;
 
-    public ?int $backImageHeight = null;
+    public ?string $frontOcrTitle = null;
+
+    public ?string $frontOcrSubtitle = null;
+
+    public ?string $frontOcrAuthors = null;
+
+    public ?string $frontOcrPublisher = null;
+
+    public ?string $frontOcrText = null;
+
+    public ?string $frontOcrConfidence = null;
 
     public int $quantity = 1;
 
@@ -56,13 +66,46 @@ class CaptureBook extends Page
     {
         return [
             'frontImageData' => ['required', 'string'],
-            'backImageData' => ['required', 'string'],
             'frontImageWidth' => ['nullable', 'integer', 'min:1'],
             'frontImageHeight' => ['nullable', 'integer', 'min:1'],
-            'backImageWidth' => ['nullable', 'integer', 'min:1'],
-            'backImageHeight' => ['nullable', 'integer', 'min:1'],
+            'isbnBarcodeValue' => ['required', 'string', 'max:64', 'regex:/^[0-9]+$/'],
+            'frontOcrTitle' => ['nullable', 'string', 'max:255'],
+            'frontOcrSubtitle' => ['nullable', 'string', 'max:1000'],
+            'frontOcrAuthors' => ['nullable', 'string', 'max:1000'],
+            'frontOcrPublisher' => ['nullable', 'string', 'max:255'],
+            'frontOcrText' => ['nullable', 'string', 'max:5000'],
+            'frontOcrConfidence' => ['nullable', 'numeric', 'min:0', 'max:1'],
             'quantity' => ['required', 'integer', 'min:1'],
         ];
+    }
+
+    /**
+     * @return array{ok: bool, metadata?: array<string, mixed>, error?: string}
+     */
+    public function previewFrontOcr(string $imageData): array
+    {
+        try {
+            $metadata = app(BookCoverOcrService::class)->extractFromDataUrl($imageData);
+
+            return [
+                'ok' => true,
+                'metadata' => [
+                    'title' => $metadata['title'] ?? null,
+                    'subtitle' => $metadata['subtitle'] ?? null,
+                    'authors' => $metadata['authors'] ?? [],
+                    'publisher' => $metadata['publisher'] ?? null,
+                    'confidence' => $metadata['confidence'] ?? null,
+                    'ocr_text' => $metadata['ocr_text'] ?? null,
+                ],
+            ];
+        } catch (Exception $exception) {
+            report($exception);
+
+            return [
+                'ok' => false,
+                'error' => 'OCR preview could not read this frame.',
+            ];
+        }
     }
 
     public function submit(): void
@@ -78,11 +121,9 @@ class CaptureBook extends Page
             ]);
 
             $frontImage = $this->storeCapturedImage($this->frontImageData, $captureSession->public_id, 'front');
-            $backImage = $this->storeCapturedImage($this->backImageData, $captureSession->public_id, 'back');
 
             $captureSession->update([
                 'front_image_path' => $frontImage['path'],
-                'back_image_path' => $backImage['path'],
                 'front_image_meta' => [
                     'mime_type' => $frontImage['mime_type'],
                     'size_bytes' => $frontImage['size_bytes'],
@@ -90,10 +131,8 @@ class CaptureBook extends Page
                     'height' => $this->frontImageHeight,
                 ],
                 'back_image_meta' => [
-                    'mime_type' => $backImage['mime_type'],
-                    'size_bytes' => $backImage['size_bytes'],
-                    'width' => $this->backImageWidth,
-                    'height' => $this->backImageHeight,
+                    'barcode_value' => $this->isbnBarcodeValue,
+                    'barcode_type' => '1d',
                 ],
             ]);
 
@@ -105,7 +144,7 @@ class CaptureBook extends Page
                 'source_actor_id' => auth()->id(),
                 'payload' => [
                     'front_image_path' => $frontImage['path'],
-                    'back_image_path' => $backImage['path'],
+                    'isbn_barcode_value' => $this->isbnBarcodeValue,
                     'quantity' => $this->quantity,
                     'notes' => 'Raw browser camera capture submitted for review.',
                 ],
@@ -116,6 +155,30 @@ class CaptureBook extends Page
                 ],
             ]);
 
+            if (filled($this->frontOcrTitle)) {
+                MetadataRevision::create([
+                    'capture_session_id' => $captureSession->id,
+                    'revision_type' => MetadataRevisionType::LlmDraft,
+                    'source_stage' => 'vision_extraction',
+                    'source_actor_type' => auth()->user()::class,
+                    'source_actor_id' => auth()->id(),
+                    'confidence_score' => $this->frontOcrConfidence,
+                    'payload' => [
+                        'title' => $this->frontOcrTitle,
+                        'subtitle' => $this->frontOcrSubtitle,
+                        'authors' => $this->frontOcrAuthors ? array_values(array_filter(array_map('trim', explode(',', $this->frontOcrAuthors)))) : [],
+                        'publisher' => $this->frontOcrPublisher,
+                        'ocr_text' => $this->frontOcrText,
+                        'front_image_path' => $frontImage['path'],
+                        'notes' => 'Accepted realtime OCR preview during capture.',
+                    ],
+                    'source_meta' => [
+                        'model' => config('services.ollama.vision_model', 'glm-ocr'),
+                        'capture_page_version' => 'browser_realtime_ocr_v1',
+                    ],
+                ]);
+            }
+
             return $captureSession;
         });
 
@@ -125,7 +188,7 @@ class CaptureBook extends Page
             ->success()
             ->send();
 
-        $this->redirect(CaptureSessionResource::getUrl('view', ['record' => $captureSession]) . '?autoback=1');
+        $this->redirect(CaptureSessionResource::getUrl('view', ['record' => $captureSession]).'?autoback=1');
     }
 
     /**

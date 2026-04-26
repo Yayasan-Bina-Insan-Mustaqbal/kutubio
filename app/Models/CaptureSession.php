@@ -46,6 +46,14 @@ class CaptureSession extends Model
     }
 
     /**
+     * @return HasMany<JobLog, $this>
+     */
+    public function jobLogs(): HasMany
+    {
+        return $this->hasMany(JobLog::class)->latest();
+    }
+
+    /**
      * @return array<string, string>
      */
     protected function casts(): array

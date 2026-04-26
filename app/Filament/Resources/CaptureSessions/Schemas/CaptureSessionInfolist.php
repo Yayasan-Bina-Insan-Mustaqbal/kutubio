@@ -10,6 +10,8 @@ use App\Jobs\ReadIsbnQrCodeJob;
 use App\Jobs\SummarizeCaptureSessionJob;
 use Filament\Actions\Action;
 use Filament\Infolists\Components\ImageEntry;
+use Filament\Infolists\Components\RepeatableEntry;
+use Filament\Infolists\Components\RepeatableEntry\TableColumn;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Notifications\Notification;
 use Filament\Schemas\Components\Actions;
@@ -81,7 +83,7 @@ class CaptureSessionInfolist
                                     ExtractBookDataWithVisionJob::dispatch($record);
                                     Notification::make()->title('Title extraction dispatched')->success()->send();
                                 })
-                                ->disabled(fn ($record) => ! $record->front_image_path || $record->status === CaptureSessionStatus::Processing),
+                                ->disabled(fn ($record) => ! $record->front_image_path),
 
                             Action::make('readIsbnQr')
                                 ->label(fn ($record) => 'Read ISBN QR'.($record->metadataRevisions()->where('source_stage', 'qr_reading')->exists() ? ' ✅' : ''))
@@ -91,7 +93,7 @@ class CaptureSessionInfolist
                                     ReadIsbnQrCodeJob::dispatch($record);
                                     Notification::make()->title('QR reading dispatched')->success()->send();
                                 })
-                                ->disabled(fn ($record) => ! $record->back_image_path || $record->status === CaptureSessionStatus::Processing),
+                                ->disabled(fn ($record) => ! $record->back_image_path),
 
                             Action::make('summarize')
                                 ->label(fn ($record) => 'Final Summary'.($record->metadataRevisions()->where('source_stage', 'final_summary')->exists() ? ' ✅' : ''))
@@ -100,8 +102,7 @@ class CaptureSessionInfolist
                                 ->action(function ($record) {
                                     SummarizeCaptureSessionJob::dispatch($record);
                                     Notification::make()->title('Summary generation dispatched')->success()->send();
-                                })
-                                ->disabled(fn ($record) => $record->status === CaptureSessionStatus::Processing),
+                                }),
 
                             Action::make('persist')
                                 ->label(fn ($record) => 'Persist Records'.($record->status === CaptureSessionStatus::Approved ? ' ✅' : ''))
@@ -131,8 +132,9 @@ class CaptureSessionInfolist
                                     Notification::make()->title('Full automation pipeline dispatched')->success()->send();
                                 })
                                 ->requiresConfirmation()
-                                ->disabled(fn ($record) => ! $record->front_image_path || ! $record->back_image_path || $record->status === CaptureSessionStatus::Processing),
+                                ->disabled(fn ($record) => ! $record->front_image_path || ! $record->back_image_path),
                         ])
+                            ->key('processingActions')
                             ->columnSpanFull(),
 
                         Grid::make(3)
@@ -166,6 +168,41 @@ class CaptureSessionInfolist
                             ]),
                     ])
                     ->columns(1),
+
+                Section::make('Job log')
+                    ->schema([
+                        RepeatableEntry::make('jobLogs')
+                            ->label('Jobs')
+                            ->placeholder('No jobs have been logged for this capture session yet.')
+                            ->table([
+                                TableColumn::make('Job'),
+                                TableColumn::make('Status'),
+                                TableColumn::make('Attempts'),
+                                TableColumn::make('Queued'),
+                                TableColumn::make('Started'),
+                                TableColumn::make('Finished'),
+                            ])
+                            ->schema([
+                                TextEntry::make('display_name')
+                                    ->label('Job')
+                                    ->formatStateUsing(fn (string $state): string => str($state)->afterLast('\\')->toString()),
+                                TextEntry::make('status')
+                                    ->badge(),
+                                TextEntry::make('attempts')
+                                    ->numeric(),
+                                TextEntry::make('queued_at')
+                                    ->dateTime()
+                                    ->placeholder('None'),
+                                TextEntry::make('started_at')
+                                    ->dateTime()
+                                    ->placeholder('Not started'),
+                                TextEntry::make('finished_at')
+                                    ->dateTime()
+                                    ->placeholder('Not finished'),
+                            ])
+                            ->columnSpanFull(),
+                    ])
+                    ->collapsible(),
 
                 Section::make('Session')
                     ->schema([

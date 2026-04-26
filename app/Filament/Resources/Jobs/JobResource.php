@@ -2,20 +2,25 @@
 
 namespace App\Filament\Resources\Jobs;
 
-use App\Models\QueueJob;
+use App\Enums\JobLogStatus;
+use App\Models\JobLog;
 use BackedEnum;
+use Filament\Actions\Action;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\ViewAction;
+use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
+use Illuminate\Support\Facades\Artisan;
 use UnitEnum;
 
 class JobResource extends Resource
 {
-    protected static ?string $model = QueueJob::class;
+    protected static ?string $model = JobLog::class;
 
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-queue-list';
 
@@ -29,26 +34,58 @@ class JobResource extends Resource
             ->columns([
                 TextColumn::make('id')
                     ->sortable(),
+                TextColumn::make('display_name')
+                    ->label('Job Name')
+                    ->searchable()
+                    ->wrap(),
+                TextColumn::make('status')
+                    ->badge()
+                    ->sortable(),
                 TextColumn::make('queue')
                     ->badge()
                     ->sortable(),
-                TextColumn::make('display_name')
-                    ->label('Job Name')
-                    ->searchable(),
                 TextColumn::make('attempts')
                     ->numeric()
                     ->sortable(),
-                TextColumn::make('created_at')
+                TextColumn::make('queued_at')
                     ->label('Queued At')
                     ->dateTime()
                     ->sortable(),
+                TextColumn::make('started_at')
+                    ->dateTime()
+                    ->sortable()
+                    ->placeholder('Not started'),
+                TextColumn::make('finished_at')
+                    ->dateTime()
+                    ->sortable()
+                    ->placeholder('Not finished'),
+                TextColumn::make('exception')
+                    ->limit(80)
+                    ->wrap()
+                    ->tooltip(fn ($state) => $state)
+                    ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->defaultSort('created_at', 'desc')
             ->filters([
-                //
+                SelectFilter::make('status')
+                    ->options(JobLogStatus::class),
             ])
             ->recordActions([
                 ViewAction::make(),
+                Action::make('retry')
+                    ->icon('heroicon-m-arrow-path')
+                    ->color('warning')
+                    ->visible(fn (JobLog $record): bool => $record->status === JobLogStatus::Failed)
+                    ->action(function (JobLog $record): void {
+                        Artisan::call('queue:retry', [
+                            'id' => [$record->job_uuid],
+                        ]);
+
+                        Notification::make()
+                            ->title('Job added back to queue')
+                            ->success()
+                            ->send();
+                    }),
                 DeleteAction::make(),
             ])
             ->toolbarActions([
@@ -62,12 +99,13 @@ class JobResource extends Resource
     {
         return [
             'index' => Pages\ManageJobs::route('/'),
-            'failed' => Pages\ListFailedJobs::route('/failed'),
         ];
     }
 
     public static function getNavigationBadge(): ?string
     {
-        return (string) static::getModel()::count();
+        return (string) static::getModel()::query()
+            ->whereIn('status', [JobLogStatus::Queued->value, JobLogStatus::Ongoing->value])
+            ->count();
     }
 }

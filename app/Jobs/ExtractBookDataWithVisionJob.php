@@ -6,7 +6,7 @@ use App\Enums\CaptureSessionStatus;
 use App\Enums\MetadataRevisionType;
 use App\Models\CaptureSession;
 use App\Models\MetadataRevision;
-use App\Services\OllamaService;
+use App\Services\BookCoverOcrService;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -35,7 +35,7 @@ class ExtractBookDataWithVisionJob implements ShouldQueue
     /**
      * Execute the job.
      */
-    public function handle(OllamaService $ollama): void
+    public function handle(BookCoverOcrService $bookCoverOcr): void
     {
         Log::info("Starting ExtractBookDataWithVisionJob for session {$this->captureSession->public_id}");
 
@@ -56,22 +56,10 @@ class ExtractBookDataWithVisionJob implements ShouldQueue
         }
 
         try {
-            $prompt = "Read this Indonesian book cover with OCR. Extract the visible title exactly as printed in Latin letters, without translating or changing scripts. The large center text is usually the main title. Respond ONLY with a JSON object containing: 'title' (full book title), 'authors' (array of strings), 'publisher' (string, if visible), 'subtitle' (string, if visible), and 'confidence' (number from 0 to 1). If a field is not found, use null.";
-
-            $response = $ollama->extractFromImage(
-                $this->captureSession->front_image_path,
-                $prompt
-            );
-
-            $rawMetadata = ($response['response'] ?? '') ?: ($response['thinking'] ?? '{}');
-            $data = json_decode($rawMetadata, true);
+            $data = $bookCoverOcr->extractFromStoragePath($this->captureSession->front_image_path);
 
             if (empty($data['title'])) {
                 throw new \Exception('Could not extract title from image.');
-            }
-
-            if (isset($data['authors']) && is_string($data['authors'])) {
-                $data['authors'] = array_map('trim', explode('&', $data['authors']));
             }
 
             MetadataRevision::create([
@@ -82,12 +70,10 @@ class ExtractBookDataWithVisionJob implements ShouldQueue
                 'source_actor_id' => 0, // System
                 'payload' => array_merge($data, [
                     'front_image_path' => $this->captureSession->front_image_path,
-                    'notes' => 'Automatic vision extraction using '.config('services.ollama.vision_model', 'qwen3-vl:8b'),
+                    'notes' => 'Automatic vision extraction using '.config('services.ollama.vision_model', 'glm-ocr'),
                 ]),
                 'source_meta' => [
-                    'model' => config('services.ollama.vision_model', 'qwen3-vl:8b'),
-                    'raw_response' => $response['response'] ?? null,
-                    'raw_thinking' => $response['thinking'] ?? null,
+                    'model' => config('services.ollama.vision_model', 'glm-ocr'),
                 ],
             ]);
 

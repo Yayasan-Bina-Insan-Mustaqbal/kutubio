@@ -6,6 +6,7 @@ use App\Filament\Resources\BookCopies\BookCopyResource;
 use App\Filament\Resources\Books\BookResource;
 use App\Filament\Resources\CaptureSessions\CaptureSessionResource;
 use App\Filament\Resources\Categories\CategoryResource;
+use App\Filament\Resources\Jobs\JobResource;
 use App\Filament\Resources\MetadataRevisions\MetadataRevisionResource;
 use App\Filament\Resources\PrintProfiles\PrintProfileResource;
 use App\Models\User;
@@ -27,6 +28,7 @@ class FilamentResourceSmokeTest extends TestCase
             'book copies' => [BookCopyResource::class],
             'categories' => [CategoryResource::class],
             'capture sessions' => [CaptureSessionResource::class],
+            'jobs' => [JobResource::class],
             'metadata revisions' => [MetadataRevisionResource::class],
             'print profiles' => [PrintProfileResource::class],
         ];

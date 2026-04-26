@@ -63,7 +63,7 @@ class CaptureSessionResource extends Resource
     public static function getEloquentQuery(): Builder
     {
         return parent::getEloquentQuery()
-            ->with('submittedBy')
+            ->with(['jobLogs', 'submittedBy'])
             ->withCount('metadataRevisions');
     }
 }
