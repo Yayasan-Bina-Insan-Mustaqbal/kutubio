@@ -73,6 +73,17 @@ class CaptureBook extends Page
             ->send();
     }
 
+    public function resetCapture(): void
+    {
+        $this->frontImageData = null;
+        $this->frontImageWidth = null;
+        $this->frontImageHeight = null;
+        $this->bookTitle = null;
+        $this->ocrTokens = [];
+
+        $this->dispatch('capture-reset');
+    }
+
     public function updatedQuantity($value): void
     {
         if (! is_numeric($value) || $value < 1) {
