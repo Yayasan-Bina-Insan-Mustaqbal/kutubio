@@ -1,6 +1,7 @@
 <x-filament-panels::page>
-    <script src="https://unpkg.com/html5-qrcode"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/quagga/0.12.1/quagga.min.js" referrerpolicy="no-referrer"></script>
     @vite(['resources/js/app.js'])
+    
     <form wire:submit="submit" class="space-y-6">
         <textarea id="frontImageData" wire:model.live="frontImageData" class="hidden"></textarea>
         <input id="frontImageWidth" wire:model.live="frontImageWidth" type="hidden">
@@ -13,26 +14,46 @@
         <input id="frontOcrText" wire:model.live="frontOcrText" type="hidden">
         <input id="frontOcrConfidence" wire:model.live="frontOcrConfidence" type="hidden">
 
-        <div wire:ignore class="grid gap-4 lg:grid-cols-[minmax(0,1.35fr)_minmax(320px,0.65fr)]">
-            <section class="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm dark:border-white/10 dark:bg-gray-900">
-                <div class="relative aspect-[3/4] w-full bg-black">
+        <div class="grid gap-4 lg:grid-cols-[minmax(0,1.35fr)_minmax(320px,0.65fr)]">
+            <!-- Left Side: Camera Viewport -->
+            <section class="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-white/10 dark:bg-gray-900">
+                <div class="relative aspect-[3/4] w-full bg-black overflow-hidden">
+                    <!-- Main Video for Front Capture -->
                     <video id="captureVideo" autoplay playsinline muted class="h-full w-full object-cover"></video>
+                    
+                    <!-- Quagga Scanner Container (Hidden by default) -->
+                    <div id="barcodeScanner" class="hidden h-full w-full object-cover [&>video]:h-full [&>video]:w-full [&>video]:object-cover [&>canvas]:absolute [&>canvas]:inset-0 [&>canvas]:h-full [&>canvas]:w-full"></div>
+                    
                     <canvas id="mathCanvas" class="hidden"></canvas>
 
-                    <div class="absolute inset-0 pointer-events-none border-[12px] border-black/20"></div>
-
-                    <div id="scannerOverlay" class="absolute inset-x-8 top-1/4 bottom-1/4 border-2 border-dashed border-primary-500/50 transition-opacity duration-300 opacity-0 flex items-center justify-center">
-                        <div class="text-primary-500 font-mono text-xs bg-black/50 px-2 py-1 rounded">SCANNING ISBN...</div>
+                    <!-- Professional Overlay Guides -->
+                    <div class="absolute inset-0 pointer-events-none border-[16px] border-black/10"></div>
+                    
+                    <!-- Scanner Overlay for Barcode mode -->
+                    <div id="scannerOverlay" class="absolute inset-x-8 top-1/3 bottom-1/3 border-2 border-dashed border-primary-500/50 transition-opacity duration-300 opacity-0 flex items-center justify-center">
+                        <div class="text-primary-500 font-mono text-[10px] uppercase tracking-widest bg-black/60 backdrop-blur-sm px-3 py-1.5 rounded-full border border-primary-500/30">
+                            Align Barcode
+                        </div>
                     </div>
 
-                    <div class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent p-4">
+                    <!-- Stability Progress Bar -->
+                    <div id="stabilityContainer" class="absolute inset-x-12 top-1/2 -translate-y-1/2 hidden flex-col items-center gap-3">
+                        <div class="w-full h-1.5 bg-black/40 rounded-full overflow-hidden backdrop-blur-md border border-white/10">
+                            <div id="stabilityBar" class="h-full bg-primary-500 transition-all duration-100 ease-out shadow-[0_0_10px_rgba(var(--primary-500),0.5)]" style="width: 0%"></div>
+                        </div>
+                        <span id="timerVal" class="text-[10px] font-bold text-white uppercase tracking-widest drop-shadow-md">Stabilizing...</span>
+                    </div>
+
+                    <!-- Bottom Status Bar -->
+                    <div class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent p-5">
                         <div class="flex items-center justify-between">
-                            <div id="statusIndicator" class="flex items-center gap-2">
-                                <div class="h-2.5 w-2.5 rounded-full bg-gray-500 animate-pulse"></div>
-                                <span class="text-xs font-medium text-white uppercase tracking-wider">Initializing...</span>
+                            <div id="statusIndicator" class="flex items-center gap-2.5">
+                                <div class="h-2 w-2 rounded-full bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.6)]"></div>
+                                <span class="text-[10px] font-bold text-white uppercase tracking-widest">Ready: Front</span>
+                                <span id="motionVal" class="ml-2 text-[9px] font-medium text-white/40 font-mono"></span>
                             </div>
                             <div class="flex gap-2">
-                                <button type="button" id="switchCameraBtn" class="rounded-full bg-white/10 p-2 text-white hover:bg-white/20">
+                                <button type="button" id="switchCameraBtn" class="rounded-full bg-white/10 backdrop-blur-md p-2.5 text-white hover:bg-white/20 transition-colors border border-white/5">
                                     <x-heroicon-m-arrow-path class="h-5 w-5" />
                                 </button>
                             </div>
@@ -41,91 +62,132 @@
                 </div>
             </section>
 
+            <!-- Right Side: Controls -->
             <aside class="space-y-4" x-data="tokenSelector">
-                <div class="rounded-xl border border-gray-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-gray-900">
-                    <label for="bookTitle" class="mb-2 block text-sm font-medium text-gray-950 dark:text-white">
-                        Book Title
+                <!-- Book Title Section -->
+                <div class="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-gray-900">
+                    <label class="mb-3 block text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                        Book Title Extraction
                     </label>
 
                     <div class="space-y-4">
-                        <div id="token-sentence-container" class="flex flex-wrap gap-1 rounded-xl border border-gray-200 bg-gray-50 p-4 text-lg leading-relaxed dark:border-white/10 dark:bg-gray-800">
+                        <!-- Token Sentence Container -->
+                        <div id="token-sentence-container" class="flex min-h-[120px] flex-wrap content-start gap-1.5 rounded-xl border border-gray-100 bg-gray-50/50 p-4 text-base leading-relaxed dark:border-white/10 dark:bg-gray-800/50">
                             <template x-if="! $wire.ocrTokens || $wire.ocrTokens.length === 0">
-                                <span class="italic text-gray-400">Capture front cover to extract title...</span>
+                                <div class="flex flex-col items-center justify-center w-full py-4 text-center">
+                                    <x-heroicon-m-camera class="h-8 w-8 text-gray-300 dark:text-gray-600 mb-2" />
+                                    <span class="text-xs italic text-gray-400">Capture front cover to extract title...</span>
+                                </div>
                             </template>
                             <template x-for="(token, index) in $wire.ocrTokens" :key="index">
                                 <span 
                                     x-text="token"
                                     x-on:click="toggleToken(index)"
-                                    class="cursor-pointer select-none rounded-md px-1.5 py-0.5 transition-colors duration-150"
-                                    :class="isSelected(index) ? 'bg-primary-500 text-white shadow-sm' : 'bg-transparent text-gray-800 hover:bg-gray-200 dark:text-gray-300 dark:hover:bg-gray-700'"
+                                    class="cursor-pointer select-none rounded-lg px-2 py-1 text-sm font-medium transition-all duration-200"
+                                    :class="isSelected(index) ? 'bg-primary-500 text-white shadow-lg shadow-primary-500/30 scale-105' : 'bg-white border border-gray-100 text-gray-700 hover:border-primary-300 dark:bg-gray-800 dark:border-white/5 dark:text-gray-300 dark:hover:bg-gray-700'"
                                 ></span>
                             </template>
                         </div>
 
-                        <div class="rounded-lg border border-primary-100 bg-primary-50/50 p-4 dark:border-primary-900/30 dark:bg-primary-900/10">
-                            <p class="mb-1 text-xs font-semibold uppercase tracking-wider text-primary-600 dark:text-primary-400">Selected Title</p>
-                            <p class="min-h-[1.5rem] text-sm text-gray-700 dark:text-gray-300" :class="!$wire.bookTitle && 'italic text-gray-400'" x-text="$wire.bookTitle || 'No title selected yet...'"></p>
+                        <!-- Selected Title Preview -->
+                        <div class="rounded-xl border border-primary-100 bg-primary-50/30 p-4 dark:border-primary-900/20 dark:bg-primary-900/5 overflow-hidden relative">
+                            <div class="absolute top-0 right-0 p-2 opacity-10">
+                                <x-heroicon-m-bookmark class="h-12 w-12 text-primary-500" />
+                            </div>
+                            <p class="mb-1.5 text-[10px] font-bold uppercase tracking-widest text-primary-600 dark:text-primary-400">Selected Title</p>
+                            <p class="min-h-[1.5rem] text-sm font-semibold text-gray-900 dark:text-white leading-snug" :class="!$wire.bookTitle && 'italic font-normal text-gray-400'" x-text="$wire.bookTitle || 'Select words from above...'"></p>
                         </div>
                         
                         <input type="hidden" wire:model="bookTitle" id="bookTitle">
 
                         <button 
                             type="button" 
-                            wire:click="extractTitleFromFrontImage(silent: false)" 
-                            wire:loading.attr="disabled"
-                            class="flex w-full items-center justify-center gap-2 rounded-lg border border-gray-300 bg-white px-3 py-2 text-xs font-semibold text-gray-700 shadow-sm hover:bg-gray-50 disabled:opacity-50 dark:border-white/10 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
-                            :disabled="!$wire.frontImageData"
+                            wire:click="resetCapture" 
+                            class="flex w-full items-center justify-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-xs font-bold text-gray-700 shadow-sm hover:bg-gray-50 transition-all dark:border-white/10 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
                         >
-                            <x-heroicon-m-sparkles class="h-4 w-4" wire:loading.remove wire:target="extractTitleFromFrontImage" />
-                            <svg wire:loading wire:target="extractTitleFromFrontImage" class="h-4 w-4 animate-spin text-gray-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                            </svg>
-                            <span wire:loading.remove wire:target="extractTitleFromFrontImage">Re-extract from Front Image</span>
-                            <span wire:loading wire:target="extractTitleFromFrontImage">Extracting...</span>
+                            <x-heroicon-m-camera class="h-4 w-4" />
+                            <span>Re-capture Front Cover</span>
                         </button>
                     </div>
                 </div>
 
-                <div x-show="$wire.lastScannedIsbn" x-transition class="rounded-xl border border-success-200 bg-success-50 p-4 shadow-sm dark:border-success-900/30 dark:bg-success-950/20">
-                    <div class="flex items-center justify-between">
-                        <label class="block text-sm font-medium text-success-900 dark:text-success-400">
-                            Scanned ISBN
+                <!-- ISBN Section -->
+                <div class="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-gray-900">
+                    <div class="flex items-center justify-between mb-3">
+                        <label for="isbnBarcodeInput" class="block text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                            ISBN Barcode
                         </label>
-                        <button type="button" x-on:click="$wire.lastScannedIsbn = null" class="text-xs font-semibold text-success-700 hover:text-success-600 dark:text-success-500">
+                        <button type="button" x-on:click="$wire.isbnBarcodeValue = ''; document.getElementById('isbnBarcodeInput').value = '';" class="text-[10px] font-bold uppercase tracking-wider text-gray-400 hover:text-danger-500 transition-colors">
                             Clear
                         </button>
                     </div>
-                    <p class="mt-1 font-mono text-lg font-bold text-success-950 dark:text-success-300" x-text="$wire.lastScannedIsbn"></p>
+
+                    <div class="space-y-3">
+                        <button 
+                            type="button" 
+                            x-on:click="window.startBarcodeScanner()"
+                            class="flex w-full items-center justify-center gap-2 rounded-xl bg-primary-50 px-4 py-3 text-xs font-bold text-primary-700 shadow-sm hover:bg-primary-100 transition-all dark:bg-primary-500/10 dark:text-primary-400 dark:hover:bg-primary-500/20"
+                            x-show="! $wire.isbnBarcodeValue"
+                        >
+                            <x-heroicon-m-qr-code class="h-4 w-4" />
+                            Start Scanning ISBN
+                        </button>
+
+                        <input
+                            id="isbnBarcodeInput"
+                            type="text"
+                            inputmode="numeric"
+                            pattern="[0-9]*"
+                            wire:model.live="isbnBarcodeValue"
+                            class="block w-full rounded-xl border border-gray-200 bg-gray-50 font-mono text-lg font-bold tracking-[0.2em] shadow-sm focus:border-primary-500 focus:ring-primary-500 dark:border-white/10 dark:bg-gray-800 dark:text-white text-center"
+                            placeholder="SCAN OR ENTER ISBN"
+                            maxlength="13"
+                        >
+                        @error('isbnBarcodeValue')
+                            <p class="text-[10px] font-bold text-danger-600 dark:text-danger-400 uppercase tracking-wider">Invalid ISBN format</p>
+                        @enderror
+                    </div>
                 </div>
 
-                <div class="rounded-xl border border-gray-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-gray-900">
-                    <label for="quantity" class="mb-2 block text-sm font-medium text-gray-950 dark:text-white">
+                <!-- Quantity Section -->
+                <div class="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-gray-900">
+                    <label for="quantity" class="mb-3 block text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
                         Quantity
                     </label>
-                    <div class="flex items-center gap-3">
-                        <button type="button" x-on:click="$wire.quantity = Math.max(1, $wire.quantity - 1)" class="flex h-10 w-10 items-center justify-center rounded-lg border border-gray-300 bg-white text-gray-700 shadow-sm hover:bg-gray-50 dark:border-white/10 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700">
-                            <x-heroicon-m-minus class="h-5 w-5" />
+                    <div class="flex items-center gap-4">
+                        <button type="button" x-on:click="$wire.quantity = Math.max(1, $wire.quantity - 1)" class="flex h-12 w-12 items-center justify-center rounded-xl border border-gray-200 bg-white text-gray-700 shadow-sm hover:bg-gray-50 transition-all dark:border-white/10 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700">
+                            <x-heroicon-m-minus class="h-6 w-6" />
                         </button>
-                        <input type="number" id="quantity" wire:model.live="quantity" class="block w-full rounded-lg border-gray-300 text-center text-lg font-semibold dark:border-white/10 dark:bg-gray-800 dark:text-white" min="1">
-                        <button type="button" x-on:click="$wire.quantity = $wire.quantity + 1)" class="flex h-10 w-10 items-center justify-center rounded-lg border border-gray-300 bg-white text-gray-700 shadow-sm hover:bg-gray-50 dark:border-white/10 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700">
-                            <x-heroicon-m-plus class="h-5 w-5" />
+                        <input type="number" id="quantity" wire:model.live="quantity" class="block w-full rounded-xl border border-gray-200 bg-gray-50 text-center text-xl font-bold dark:border-white/10 dark:bg-gray-800 dark:text-white" min="1">
+                        <button type="button" x-on:click="$wire.quantity = $wire.quantity + 1" class="flex h-12 w-12 items-center justify-center rounded-xl border border-gray-200 bg-white text-gray-700 shadow-sm hover:bg-gray-50 transition-all dark:border-white/10 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700">
+                            <x-heroicon-m-plus class="h-6 w-6" />
                         </button>
                     </div>
                 </div>
 
-                <button type="submit" id="submitBtn" disabled class="flex w-full items-center justify-center gap-2 rounded-xl bg-primary-600 px-4 py-4 text-sm font-bold text-white shadow-lg shadow-primary-500/20 transition-all hover:bg-primary-500 disabled:opacity-50 disabled:grayscale">
+                <!-- Submit Section -->
+                <button type="submit" id="submitBtn" disabled class="group relative flex w-full items-center justify-center gap-3 overflow-hidden rounded-2xl bg-primary-600 px-6 py-5 text-sm font-bold text-white shadow-xl shadow-primary-500/25 transition-all hover:bg-primary-500 disabled:opacity-50 disabled:grayscale disabled:shadow-none">
+                    <div class="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000"></div>
                     <x-heroicon-m-check-circle class="h-5 w-5" />
                     SUBMIT CAPTURE
                 </button>
 
-                <div class="rounded-lg bg-gray-100 p-3 text-[10px] leading-relaxed text-gray-500 dark:bg-white/5">
-                    <p class="font-bold uppercase mb-1">How it works:</p>
-                    <ul class="list-disc pl-4 space-y-1">
-                        <li>Point camera at the <strong>front cover</strong>.</li>
-                        <li>Keep it steady for auto-capture.</li>
-                        <li>Then, scan the <strong>barcode/ISBN</strong> on the back.</li>
-                        <li>Review details and submit.</li>
+                <!-- Help Section -->
+                <div class="rounded-xl bg-gray-50 p-4 dark:bg-white/5 border border-gray-100 dark:border-white/5">
+                    <p class="text-[10px] font-bold uppercase tracking-widest text-gray-400 dark:text-gray-500 mb-2">Instructions</p>
+                    <ul class="space-y-1.5 text-[10px] font-medium text-gray-500 dark:text-gray-400">
+                        <li class="flex items-start gap-2">
+                            <span class="flex-shrink-0 h-3.5 w-3.5 rounded-full bg-primary-500/10 text-primary-500 flex items-center justify-center text-[8px] font-bold">1</span>
+                            <span>Align the <strong>front cover</strong> for auto-capture.</span>
+                        </li>
+                        <li class="flex items-start gap-2">
+                            <span class="flex-shrink-0 h-3.5 w-3.5 rounded-full bg-primary-500/10 text-primary-500 flex items-center justify-center text-[8px] font-bold">2</span>
+                            <span>Pick the <strong>book title</strong> from extracted text.</span>
+                        </li>
+                        <li class="flex items-start gap-2">
+                            <span class="flex-shrink-0 h-3.5 w-3.5 rounded-full bg-primary-500/10 text-primary-500 flex items-center justify-center text-[8px] font-bold">3</span>
+                            <span>Scan the <strong>ISBN barcode</strong> on the back.</span>
+                        </li>
                     </ul>
                 </div>
             </aside>
@@ -140,9 +202,14 @@
                 selectedTokens: [],
                 
                 init() {
-                    this.$watch('$wire.ocrTokens', () => {
+                    this.$watch('$wire.ocrTokens', (tokens) => {
                         this.selectedTokens = [];
                         this.$wire.bookTitle = '';
+                        
+                        // Auto-reset if OCR failed but we have image
+                        if (this.$wire.frontImageData && (!tokens || tokens.length === 0)) {
+                            this.$wire.resetCapture();
+                        }
                     });
                 },
 
@@ -162,18 +229,17 @@
                 updateTitle() {
                     const sortedIndices = [...this.selectedTokens].sort((a, b) => a - b);
                     this.$wire.bookTitle = sortedIndices.map(i => this.$wire.ocrTokens[i]).join(' ');
+                    refreshActions();
                 }
             }));
         });
 
         (function() {
-            if (window.kutubioCapturePageInitialized) {
-                return;
-            }
-
+            if (window.kutubioCapturePageInitialized) return;
             window.kutubioCapturePageInitialized = true;
 
             const video = document.getElementById('captureVideo');
+            const barcodeScanner = document.getElementById('barcodeScanner');
             const mathCanvas = document.getElementById('mathCanvas');
             const mathContext = mathCanvas.getContext('2d', { willReadFrequently: true });
             const snapshotCanvas = document.getElementById('snapshotCanvas');
@@ -181,70 +247,24 @@
             const scannerOverlay = document.getElementById('scannerOverlay');
             const submitBtn = document.getElementById('submitBtn');
             const switchCameraBtn = document.getElementById('switchCameraBtn');
+            const stabilityContainer = document.getElementById('stabilityContainer');
+            const stabilityBar = document.getElementById('stabilityBar');
+            const timerVal = document.getElementById('timerVal');
+            const motionVal = document.getElementById('motionVal');
+            const isbnBarcodeInput = document.getElementById('isbnBarcodeInput');
 
             let lastPixels = null;
             let stableFrames = 0;
+            let state = 'IDLE'; // IDLE -> MOVING -> STABILIZING -> CAPTURED
+            const FRAMES_TO_STABILIZE = 45; 
             let loopId = null;
             let stream = null;
             let activeSide = 'front';
-            let html5QrCode = null;
-            let lastExtractionTime = 0;
-            const extractionInterval = 5000;
+            let quaggaStarted = false;
+            let currentFacingMode = 'environment';
 
-            let barcodeDetector = null;
-            let barcodeDetectorFormats = [];
-            let barcodeScanInFlight = false;
-            let barcodeScanningAvailable = false;
-            let ocrPreviewInFlight = false;
-            let lastOcrPreviewAt = 0;
-            let ocrCandidate = null;
-            let ocrLines = [];
-
-            const periodicTitleExtraction = () => {
-                if (activeSide !== 'front' || !stream || $wire.isExtracting) return;
-                
-                const now = Date.now();
-                if (now - lastExtractionTime < extractionInterval) return;
-
-                if (stableFrames < 2) return;
-
-                lastExtractionTime = now;
-
-                const tempCanvas = document.createElement('canvas');
-                tempCanvas.width = 640;
-                tempCanvas.height = 480;
-                const tempCtx = tempCanvas.getContext('2d');
-                tempCtx.drawImage(video, 0, 0, 640, 480);
-                
-                const dataUrl = tempCanvas.toDataURL('image/jpeg', 0.6);
-                $wire.set('frontImageData', dataUrl, false);
-                $wire.extractTitleFromFrontImage();
-            };
-
-            const scanFrame = async () => {
-                if (activeSide !== 'back' || !stream || $wire.lastScannedIsbn) return;
-
-                const tempCanvas = document.createElement('canvas');
-                tempCanvas.width = video.videoWidth;
-                tempCanvas.height = video.videoHeight;
-                const tempCtx = tempCanvas.getContext('2d');
-                tempCtx.drawImage(video, 0, 0);
-
-                try {
-                    if (!html5QrCode) {
-                        html5QrCode = new Html5Qrcode("mathCanvas");
-                    }
-
-                    const result = await html5QrCode.scanFile(tempCanvas.toDataURL('image/jpeg'), false);
-                    if (result) {
-                        $wire.scannedIsbn(result);
-                    }
-                } catch (e) {
-                }
-            };
-
-            const motionThresholdHigh = 15;
-            const motionThresholdLow = 4;
+            const motionThresholdHigh = 22;
+            const motionThresholdLow = 8;
 
             const updateStatus = (state) => {
                 const dot = statusIndicator.querySelector('div');
@@ -252,36 +272,97 @@
 
                 switch(state) {
                     case 'IDLE':
-                        dot.className = 'h-2.5 w-2.5 rounded-full bg-blue-500';
-                        label.innerText = `READY: ${activeSide.toUpperCase()}`;
+                        dot.className = 'h-2 w-2 rounded-full bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.6)]';
+                        label.innerText = activeSide === 'back' ? 'SCAN ISBN BARCODE' : 'READY: FRONT';
                         scannerOverlay.classList.toggle('opacity-0', activeSide !== 'back');
                         break;
                     case 'STABILIZING':
-                        dot.className = 'h-2.5 w-2.5 rounded-full bg-yellow-500 animate-pulse';
+                        dot.className = 'h-2 w-2 rounded-full bg-yellow-500 animate-pulse shadow-[0_0_8px_rgba(234,179,8,0.6)]';
                         label.innerText = 'STABILIZING...';
                         break;
                     case 'CAPTURING':
-                        dot.className = 'h-2.5 w-2.5 rounded-full bg-green-500 animate-ping';
+                        dot.className = 'h-2 w-2 rounded-full bg-green-500 animate-ping shadow-[0_0_8px_rgba(34,197,94,0.6)]';
                         label.innerText = 'CAPTURING!';
                         break;
                     case 'DONE':
-                        dot.className = 'h-2.5 w-2.5 rounded-full bg-success-500';
+                        dot.className = 'h-2 w-2 rounded-full bg-success-500 shadow-[0_0_8px_rgba(var(--success-500),0.6)]';
                         label.innerText = 'READY TO SUBMIT';
                         scannerOverlay.classList.add('opacity-0');
                         break;
                 }
             };
 
+            const stopMotionLoop = () => { if (loopId) { cancelAnimationFrame(loopId); loopId = null; } };
+            const stopCameraStream = () => { if (stream) { stream.getTracks().forEach(track => track.stop()); stream = null; } };
+
+            const stopBarcodeScanner = () => {
+                if (!quaggaStarted || typeof Quagga === 'undefined') return;
+                Quagga.offDetected(handleBarcodeDetected);
+                Quagga.stop();
+                quaggaStarted = false;
+                const canvas = barcodeScanner.querySelector('canvas.drawingBuffer');
+                if (canvas) canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
+            };
+
+            const normalizeBarcode = (value) => value.replace(/\D/g, '').slice(0, 13);
+
+            function handleBarcodeDetected(result) {
+                const code = normalizeBarcode(result?.codeResult?.code || '');
+                if (code.length < 10) return;
+                
+                @this.set('isbnBarcodeValue', code);
+                if (isbnBarcodeInput) isbnBarcodeInput.value = code;
+                stopBarcodeScanner();
+                refreshActions();
+            }
+
+            window.startBarcodeScanner = () => {
+                activeSide = 'back';
+                stopMotionLoop();
+                stopCameraStream();
+
+                if (!barcodeScanner || typeof Quagga === 'undefined') {
+                    updateStatus('IDLE');
+                    return;
+                }
+
+                video.classList.add('hidden');
+                barcodeScanner.classList.remove('hidden');
+                updateStatus('IDLE');
+
+                if (quaggaStarted) { Quagga.stop(); quaggaStarted = false; }
+
+                Quagga.init({
+                    inputStream: {
+                        name: 'Live',
+                        type: 'LiveStream',
+                        target: barcodeScanner,
+                        constraints: {
+                            facingMode: currentFacingMode,
+                            width: { min: 640, ideal: 1280 },
+                            height: { min: 480, ideal: 720 },
+                        },
+                    },
+                    decoder: { readers: ['ean_reader', 'ean_8_reader'] },
+                    locate: true,
+                    frequency: 10,
+                }, (error) => {
+                    if (error) { console.error(error); return; }
+                    Quagga.start();
+                    quaggaStarted = true;
+                    Quagga.onDetected(handleBarcodeDetected);
+                });
+            };
+
             const captureSide = (side) => {
                 updateStatus('CAPTURING');
+                stabilityContainer.classList.add('hidden');
                 
                 const width = video.videoWidth;
                 const height = video.videoHeight;
                 snapshotCanvas.width = width;
                 snapshotCanvas.height = height;
-                
-                const context = snapshotCanvas.getContext('2d');
-                context.drawImage(video, 0, 0, width, height);
+                snapshotCanvas.getContext('2d').drawImage(video, 0, 0, width, height);
                 
                 const dataUrl = snapshotCanvas.toDataURL('image/jpeg', 0.85);
 
@@ -289,74 +370,65 @@
                     @this.set('frontImageData', dataUrl);
                     @this.set('frontImageWidth', width);
                     @this.set('frontImageHeight', height);
-                } else {
-                    // back image removed in upstream
+                    @this.extractTitleFromFrontImage(false, dataUrl);
                 }
 
-                updateStability();
                 refreshActions();
-
-                if (activeSide === 'front') {
-                    @this.extractTitleFromFrontImage();
-                }
-
-                const sideCaptured = activeSide;
-                window.setTimeout(() => {
-                    if (sideCaptured === 'back' || !stream) {
-                        return;
-                    }
-                    activeSide = 'back';
-                    stableFrames = 0;
-                    lastPixels = null;
-                    updateStatus('IDLE');
-                }, 1000);
             };
 
-            const refreshActions = () => {
+            window.refreshActions = () => {
                 const hasFront = @this.get('frontImageData');
-                const hasIsbn = @this.get('isbnBarcodeValue') || @this.get('lastScannedIsbn');
-                
-                submitBtn.disabled = !hasFront;
-                if (hasFront && hasIsbn) {
-                    updateStatus('DONE');
+                const hasIsbn = @this.get('isbnBarcodeValue') || isbnBarcodeInput?.value;
+                const hasTitle = @this.get('bookTitle');
+                const isReady = !!(hasFront && hasIsbn && hasTitle);
+
+                if (submitBtn) {
+                    submitBtn.disabled = !isReady;
                 }
+
+                if (isReady) updateStatus('DONE');
             };
 
             const updateStability = () => {
+                if (!mathContext) return;
+                mathContext.drawImage(video, 0, 0, 160, 120);
                 const pixels = mathContext.getImageData(0, 0, 160, 120).data;
                 const currentPixels = [];
                 let totalDiff = 0;
 
-                scanFrame();
-                periodicTitleExtraction();
-
                 for (let index = 0; index < pixels.length; index += 4) {
                     const gray = (pixels[index] * 0.299) + (pixels[index + 1] * 0.587) + (pixels[index + 2] * 0.114);
                     currentPixels.push(gray);
-                    
-                    if (lastPixels) {
-                        totalDiff += Math.abs(gray - lastPixels[index/4]);
-                    }
+                    if (lastPixels) totalDiff += Math.abs(gray - lastPixels[index/4]);
                 }
 
                 const avgDiff = lastPixels ? totalDiff / (pixels.length / 4) : 100;
                 lastPixels = currentPixels;
+                if (motionVal) motionVal.innerText = `Motion: ${avgDiff.toFixed(1)}`;
 
-                if (avgDiff < motionThresholdLow) {
-                    stableFrames++;
-                    if (stableFrames > 5) {
+                if (state === 'IDLE') {
+                    if (avgDiff > motionThresholdHigh) {
+                        state = 'MOVING';
                         updateStatus('STABILIZING');
                     }
-                    if (stableFrames > 15) {
-                        const hasCurrentSide = activeSide === 'front' ? @this.get('frontImageData') : true;
-                        if (!hasCurrentSide) {
-                            captureSide(activeSide);
+                } else if (state === 'MOVING' || state === 'STABILIZING') {
+                    if (avgDiff > motionThresholdLow) {
+                        state = 'MOVING';
+                        stableFrames = 0;
+                        stabilityContainer.classList.add('hidden');
+                    } else {
+                        state = 'STABILIZING';
+                        stableFrames++;
+                        const percent = Math.min((stableFrames / FRAMES_TO_STABILIZE) * 100, 100);
+                        if (stabilityBar) stabilityBar.style.width = percent + '%';
+                        if (timerVal) timerVal.innerText = `STABILIZING... ${Math.round(percent)}%`;
+                        
+                        if (stableFrames > 5) stabilityContainer.classList.remove('hidden');
+
+                        if (stableFrames >= FRAMES_TO_STABILIZE) {
+                            state = 'CAPTURED';
+                            if (!@this.get('frontImageData')) captureSide('front');
                         }
-                    }
-                } else if (avgDiff > motionThresholdHigh) {
-                    stableFrames = 0;
-                    if (!(@this.get('frontImageData') && activeSide === 'back' && (@this.get('isbnBarcodeValue') || @this.get('lastScannedIsbn')))) {
-                        updateStatus('IDLE');
                     }
                 }
 
@@ -364,44 +436,53 @@
             };
 
             const startCamera = async (facingMode = 'environment') => {
-                if (stream) {
-                    stream.getTracks().forEach(track => track.stop());
-                }
-
+                stopCameraStream();
                 try {
                     stream = await navigator.mediaDevices.getUserMedia({
-                        video: { 
-                            facingMode: facingMode,
-                            width: { ideal: 1280 },
-                            height: { ideal: 960 }
-                        },
-                        audio: false
+                        video: { facingMode, width: { ideal: 1280 }, height: { ideal: 960 } },
                     });
-                    
                     video.srcObject = stream;
                     video.onloadedmetadata = () => {
-                        mathCanvas.width = 160;
-                        mathCanvas.height = 120;
+                        mathCanvas.width = 160; mathCanvas.height = 120;
                         updateStatus('IDLE');
                         loopId = requestAnimationFrame(updateStability);
                     };
                 } catch (err) {
-                    console.error("Camera error:", err);
+                    console.error(err);
                     statusIndicator.querySelector('span').innerText = "CAMERA ERROR";
                 }
             };
 
-            let currentFacingMode = 'environment';
             switchCameraBtn.addEventListener('click', () => {
                 currentFacingMode = currentFacingMode === 'environment' ? 'user' : 'environment';
-                startCamera(currentFacingMode);
+                if (activeSide === 'back') { stopBarcodeScanner(); startBarcodeScanner(); }
+                else startCamera(currentFacingMode);
             });
+
+            if (isbnBarcodeInput) {
+                isbnBarcodeInput.addEventListener('input', () => {
+                    const normalized = normalizeBarcode(isbnBarcodeInput.value);
+                    if (isbnBarcodeInput.value !== normalized) {
+                        isbnBarcodeInput.value = normalized;
+                        @this.set('isbnBarcodeValue', normalized);
+                    }
+                    refreshActions();
+                });
+            }
 
             startCamera();
 
             document.addEventListener('livewire:navigating', () => {
-                if (loopId) cancelAnimationFrame(loopId);
-                if (stream) stream.getTracks().forEach(track => track.stop());
+                stopMotionLoop(); stopCameraStream(); stopBarcodeScanner();
+            });
+
+            window.addEventListener('capture-reset', () => {
+                activeSide = 'front'; state = 'MOVING'; stableFrames = 0; lastPixels = null;
+                stopBarcodeScanner();
+                barcodeScanner.classList.add('hidden');
+                video.classList.remove('hidden');
+                if (!stream) startCamera(currentFacingMode);
+                else { updateStatus('IDLE'); refreshActions(); }
             });
         })();
     </script>
