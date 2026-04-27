@@ -105,14 +105,14 @@ class CaptureBook extends Page
             $data = explode(',', $this->frontImageData)[1];
             Storage::disk('public')->put($tempPath, base64_decode($data));
 
-            $prompt = "Read this Indonesian book cover with OCR. Extract ALL visible text as a single string, exactly as printed. Do not interpret or structure it, just give me the raw text tokens separated by spaces. Respond ONLY with a JSON object containing a 'text' field.";
+            $prompt = "Read this Indonesian book cover with OCR. Extract ALL visible text. Do not interpret or structure it. Break the text into individual words/tokens separated by a single space. Respond ONLY with a JSON object containing a 'text' field.";
 
             $response = $ollama->extractFromImage($tempPath, $prompt);
             $result = json_decode($response['response'] ?? '{}', true);
             $rawText = $result['text'] ?? '';
 
             if ($rawText) {
-                $newTokens = array_filter(explode(' ', $rawText));
+                $newTokens = array_values(array_filter(preg_split('/\s+/', $rawText)));
                 // Only update if we found something meaningful and tokens changed significantly
                 if (count($newTokens) > 0 && implode(' ', $newTokens) !== implode(' ', $this->ocrTokens)) {
                     $this->ocrTokens = $newTokens;
