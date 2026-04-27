@@ -41,6 +41,18 @@ class PersistCaptureSessionJob implements ShouldQueue
             ->latest()
             ->first()?->payload ?? [];
 
+        // Fallback to title from other revisions (like manual capture page entry)
+        if (empty($visionData['title'])) {
+            $anyTitle = $this->captureSession->metadataRevisions()
+                ->whereNotNull('payload->title')
+                ->latest()
+                ->first()?->payload['title'] ?? null;
+
+            if ($anyTitle) {
+                $visionData['title'] = $anyTitle;
+            }
+        }
+
         $qrData = $this->captureSession->metadataRevisions()
             ->where('source_stage', 'qr_reading')
             ->latest()

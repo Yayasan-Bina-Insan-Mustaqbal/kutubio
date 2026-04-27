@@ -8,12 +8,14 @@ use App\Filament\Resources\CaptureSessions\CaptureSessionResource;
 use App\Models\CaptureSession;
 use App\Models\MetadataRevision;
 use App\Services\BookCoverOcrService;
+use App\Services\OllamaService;
 use BackedEnum;
 use Exception;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Filament\Support\Icons\Heroicon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 use UnitEnum;
@@ -52,10 +54,73 @@ class CaptureBook extends Page
 
     public int $quantity = 1;
 
+    public ?string $bookTitle = null;
+
+    public array $ocrTokens = [];
+
+    public bool $isExtracting = false;
+
+    public ?string $lastScannedIsbn = null;
+
+    public function scannedIsbn(string $isbn): void
+    {
+        $this->lastScannedIsbn = $isbn;
+
+        Notification::make()
+            ->title('ISBN Scanned')
+            ->body("Found: {$isbn}")
+            ->success()
+            ->send();
+    }
+
     public function updatedQuantity($value): void
     {
         if (! is_numeric($value) || $value < 1) {
             $this->quantity = 1;
+        }
+    }
+
+    public function extractTitleFromFrontImage(OllamaService $ollama, bool $silent = true): void
+    {
+        if (! $this->frontImageData) {
+            return;
+        }
+
+        $this->isExtracting = true;
+
+        try {
+            // Save temporary image for Ollama
+            $tempPath = 'temp/'.uniqid().'.jpg';
+            $data = explode(',', $this->frontImageData)[1];
+            Storage::disk('public')->put($tempPath, base64_decode($data));
+
+            $prompt = "Read this Indonesian book cover with OCR. Extract ALL visible text as a single string, exactly as printed. Do not interpret or structure it, just give me the raw text tokens separated by spaces. Respond ONLY with a JSON object containing a 'text' field.";
+
+            $response = $ollama->extractFromImage($tempPath, $prompt);
+            $result = json_decode($response['response'] ?? '{}', true);
+            $rawText = $result['text'] ?? '';
+
+            if ($rawText) {
+                $newTokens = array_filter(explode(' ', $rawText));
+                // Only update if we found something meaningful and tokens changed significantly
+                if (count($newTokens) > 0 && implode(' ', $newTokens) !== implode(' ', $this->ocrTokens)) {
+                    $this->ocrTokens = $newTokens;
+                    $this->dispatch('tokens-extracted', tokens: $this->ocrTokens);
+                }
+            }
+
+            Storage::disk('public')->delete($tempPath);
+
+        } catch (\Exception $e) {
+            Log::error('Manual extraction failed: '.$e->getMessage());
+            if (! $silent) {
+                Notification::make()
+                    ->title('Text extraction failed')
+                    ->danger()
+                    ->send();
+            }
+        } finally {
+            $this->isExtracting = false;
         }
     }
 
@@ -76,6 +141,7 @@ class CaptureBook extends Page
             'frontOcrText' => ['nullable', 'string', 'max:5000'],
             'frontOcrConfidence' => ['nullable', 'numeric', 'min:0', 'max:1'],
             'quantity' => ['required', 'integer', 'min:1'],
+            'bookTitle' => ['nullable', 'string', 'max:255'],
         ];
     }
 
@@ -143,6 +209,8 @@ class CaptureBook extends Page
                 'source_actor_type' => auth()->user()::class,
                 'source_actor_id' => auth()->id(),
                 'payload' => [
+                    'title' => $this->bookTitle,
+                    'isbn' => $this->lastScannedIsbn,
                     'front_image_path' => $frontImage['path'],
                     'isbn_barcode_value' => $this->isbnBarcodeValue,
                     'quantity' => $this->quantity,
