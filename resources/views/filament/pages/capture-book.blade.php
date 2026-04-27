@@ -17,7 +17,7 @@
         <div class="grid gap-4 lg:grid-cols-[minmax(0,1.35fr)_minmax(320px,0.65fr)]">
             <!-- Left Side: Camera Viewport -->
             <section class="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-white/10 dark:bg-gray-900">
-                <div class="relative aspect-[3/4] w-full bg-black overflow-hidden">
+                <div class="relative aspect-square w-full bg-black overflow-hidden">
                     <!-- Main Video for Front Capture -->
                     <video id="captureVideo" autoplay playsinline muted class="h-full w-full object-cover"></video>
                     
