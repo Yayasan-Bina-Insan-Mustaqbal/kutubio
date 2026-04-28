@@ -191,7 +191,7 @@
                         </li>
                         <li class="flex items-start gap-2">
                             <span class="flex-shrink-0 h-3.5 w-3.5 rounded-full bg-primary-500/10 text-primary-500 flex items-center justify-center text-[8px] font-bold">3</span>
-                            <span>Scan the <strong>ISBN barcode</strong> on the back.</span>
+                            <span>Scan the <strong>ISBN barcode</strong>.</span>
                         </li>
                     </ul>
                 </div>
@@ -284,8 +284,8 @@
                 switch(state) {
                     case 'IDLE':
                         dot.className = 'h-2 w-2 rounded-full bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.6)]';
-                        label.innerText = activeSide === 'back' ? 'SCAN ISBN BARCODE' : 'READY: FRONT';
-                        scannerOverlay.classList.toggle('opacity-0', activeSide !== 'back');
+                        label.innerText = activeSide === 'isbn' ? 'SCAN ISBN BARCODE' : 'READY: FRONT';
+                        scannerOverlay.classList.toggle('opacity-0', activeSide !== 'isbn');
                         break;
                     case 'STABILIZING':
                         dot.className = 'h-2 w-2 rounded-full bg-yellow-500 animate-pulse shadow-[0_0_8px_rgba(234,179,8,0.6)]';
@@ -328,7 +328,7 @@
             }
 
             window.startBarcodeScanner = () => {
-                activeSide = 'back';
+                activeSide = 'isbn';
                 stopMotionLoop();
                 stopCameraStream();
 
@@ -467,7 +467,7 @@
 
             switchCameraBtn.addEventListener('click', () => {
                 currentFacingMode = currentFacingMode === 'environment' ? 'user' : 'environment';
-                if (activeSide === 'back') { stopBarcodeScanner(); startBarcodeScanner(); }
+                if (activeSide === 'isbn') { stopBarcodeScanner(); startBarcodeScanner(); }
                 else startCamera(currentFacingMode);
             });
 

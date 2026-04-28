@@ -32,16 +32,12 @@ class CaptureSessionInfolist
                             ->label('Front image')
                             ->disk('public')
                             ->placeholder('Not uploaded'),
-                        ImageEntry::make('back_image_path')
-                            ->label('Back image')
-                            ->disk('public')
-                            ->placeholder('Not uploaded'),
                         TextEntry::make('decoded_qr_payload')
                             ->copyable()
                             ->placeholder('None')
                             ->columnSpanFull(),
                     ])
-                    ->columns(2),
+                    ->columns(1),
 
                 Section::make('Resulting Metadata')
                     ->schema([
@@ -92,8 +88,7 @@ class CaptureSessionInfolist
                                 ->action(function ($record) {
                                     ReadIsbnQrCodeJob::dispatch($record);
                                     Notification::make()->title('QR reading dispatched')->success()->send();
-                                })
-                                ->disabled(fn ($record) => ! $record->back_image_path),
+                                }),
 
                             Action::make('summarize')
                                 ->label(fn ($record) => 'Final Summary'.($record->metadataRevisions()->where('source_stage', 'final_summary')->exists() ? ' ✅' : ''))
@@ -132,7 +127,7 @@ class CaptureSessionInfolist
                                     Notification::make()->title('Full automation pipeline dispatched')->success()->send();
                                 })
                                 ->requiresConfirmation()
-                                ->disabled(fn ($record) => ! $record->front_image_path || ! $record->back_image_path),
+                                ->disabled(fn ($record) => ! $record->front_image_path),
                         ])
                             ->key('processingActions')
                             ->columnSpanFull(),
