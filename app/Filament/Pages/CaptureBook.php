@@ -144,7 +144,7 @@ class CaptureBook extends Page
             'frontImageData' => ['required', 'string'],
             'frontImageWidth' => ['nullable', 'integer', 'min:1'],
             'frontImageHeight' => ['nullable', 'integer', 'min:1'],
-            'isbnBarcodeValue' => ['required', 'string', 'max:64', 'regex:/^[0-9]+$/'],
+            'isbnBarcodeValue' => ['nullable', 'string', 'max:64', 'regex:/^[0-9]+$/'],
             'frontOcrTitle' => ['nullable', 'string', 'max:255'],
             'frontOcrSubtitle' => ['nullable', 'string', 'max:1000'],
             'frontOcrAuthors' => ['nullable', 'string', 'max:1000'],

@@ -166,7 +166,12 @@
                 </div>
 
                 <!-- Submit Section -->
-                <button type="submit" id="submitBtn" disabled class="group relative flex w-full items-center justify-center gap-3 overflow-hidden rounded-2xl bg-primary-600 px-6 py-5 text-sm font-bold text-white shadow-xl shadow-primary-500/25 transition-all hover:bg-primary-500 disabled:opacity-50 disabled:grayscale disabled:shadow-none">
+                <button 
+                    type="submit" 
+                    id="submitBtn" 
+                    x-bind:disabled="! ($wire.frontImageData && $wire.bookTitle)"
+                    class="group relative flex w-full items-center justify-center gap-3 overflow-hidden rounded-2xl bg-primary-600 px-6 py-5 text-sm font-bold text-white shadow-xl shadow-primary-500/25 transition-all hover:bg-primary-500 disabled:opacity-50 disabled:grayscale disabled:shadow-none"
+                >
                     <div class="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000"></div>
                     <x-heroicon-m-check-circle class="h-5 w-5" />
                     SUBMIT CAPTURE
@@ -210,6 +215,8 @@
                         if (this.$wire.frontImageData && (!tokens || tokens.length === 0)) {
                             this.$wire.resetCapture();
                         }
+
+                        if (window.refreshActions) window.refreshActions();
                     });
                 },
 
@@ -229,7 +236,7 @@
                 updateTitle() {
                     const sortedIndices = [...this.selectedTokens].sort((a, b) => a - b);
                     this.$wire.bookTitle = sortedIndices.map(i => this.$wire.ocrTokens[i]).join(' ');
-                    refreshActions();
+                    if (window.refreshActions) window.refreshActions();
                 }
             }));
         });
@@ -267,8 +274,12 @@
             const motionThresholdLow = 8;
 
             const updateStatus = (state) => {
-                const dot = statusIndicator.querySelector('div');
-                const label = statusIndicator.querySelector('span');
+                const indicator = document.getElementById('statusIndicator');
+                if (!indicator) return;
+
+                const dot = indicator.querySelector('div');
+                const label = indicator.querySelector('span');
+                if (!dot || !label) return;
 
                 switch(state) {
                     case 'IDLE':
@@ -378,12 +389,13 @@
 
             window.refreshActions = () => {
                 const hasFront = @this.get('frontImageData');
-                const hasIsbn = @this.get('isbnBarcodeValue') || isbnBarcodeInput?.value;
                 const hasTitle = @this.get('bookTitle');
-                const isReady = !!(hasFront && hasIsbn && hasTitle);
+                const isReady = !!(hasFront && hasTitle);
 
-                if (submitBtn) {
-                    submitBtn.disabled = !isReady;
+                // Note: submitBtn is now also handled by Alpine x-bind:disabled
+                const btn = document.getElementById('submitBtn');
+                if (btn) {
+                    btn.disabled = !isReady;
                 }
 
                 if (isReady) updateStatus('DONE');
