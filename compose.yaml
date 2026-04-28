@@ -25,6 +25,11 @@ services:
             - pgsql
             - redis
     worker:
+        build:
+            context: ./vendor/laravel/sail/runtimes/8.5
+            dockerfile: Dockerfile
+            args:
+                WWWGROUP: '${WWWGROUP}'
         image: sail-8.5/app
         environment:
             WWWUSER: '${WWWUSER}'
