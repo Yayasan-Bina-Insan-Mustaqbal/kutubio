@@ -9,6 +9,7 @@ enum BookCopyStatus: string implements HasColor, HasLabel
 {
     case Draft = 'draft';
     case Available = 'available';
+    case Borrowed = 'borrowed';
     case Processing = 'processing';
     case Lost = 'lost';
     case Archived = 'archived';
@@ -18,6 +19,7 @@ enum BookCopyStatus: string implements HasColor, HasLabel
         return match ($this) {
             self::Draft => 'Draft',
             self::Available => 'Available',
+            self::Borrowed => 'Borrowed',
             self::Processing => 'Processing',
             self::Lost => 'Lost',
             self::Archived => 'Archived',
@@ -28,10 +30,11 @@ enum BookCopyStatus: string implements HasColor, HasLabel
     {
         return match ($this) {
             self::Available => 'success',
+            self::Borrowed => 'info',
             self::Processing => 'warning',
             self::Lost => 'danger',
             self::Archived => 'gray',
-            self::Draft => 'info',
+            self::Draft => 'gray',
         };
     }
 }

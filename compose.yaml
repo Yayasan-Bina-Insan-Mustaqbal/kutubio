@@ -82,6 +82,12 @@ services:
                 - ping
             retries: 3
             timeout: 5s
+    gotenberg:
+        image: 'thecodingmachine/gotenberg:8'
+        ports:
+            - '${FORWARD_GOTENBERG_PORT:-3010}:3000'
+        networks:
+            - sail
 networks:
     sail:
         driver: bridge

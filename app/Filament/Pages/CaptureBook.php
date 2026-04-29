@@ -5,6 +5,10 @@ namespace App\Filament\Pages;
 use App\Enums\CaptureSessionStatus;
 use App\Enums\MetadataRevisionType;
 use App\Filament\Resources\CaptureSessions\CaptureSessionResource;
+use App\Jobs\ExtractBookDataWithVisionJob;
+use App\Jobs\PersistCaptureSessionJob;
+use App\Jobs\ReadIsbnQrCodeJob;
+use App\Jobs\SummarizeCaptureSessionJob;
 use App\Models\CaptureSession;
 use App\Models\MetadataRevision;
 use App\Services\BookCoverOcrService;
@@ -14,6 +18,7 @@ use Exception;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Filament\Support\Icons\Heroicon;
+use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
@@ -263,9 +268,14 @@ class CaptureBook extends Page
 
         Notification::make()
             ->title('Capture session saved')
-            ->body("Session {$captureSession->public_id} is ready for review.")
+            ->body("Session {$captureSession->public_id} is being processed.")
             ->success()
             ->send();
+
+        $captureSession->update(['status' => CaptureSessionStatus::Processing]);
+
+        // Directly persist since title and ISBN are confirmed in the UI
+        PersistCaptureSessionJob::dispatch($captureSession);
 
         $this->redirect(CaptureSessionResource::getUrl('view', ['record' => $captureSession]).'?autoback=1');
     }

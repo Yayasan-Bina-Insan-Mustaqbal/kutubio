@@ -10,12 +10,16 @@ use App\Filament\Resources\Books\Schemas\BookForm;
 use App\Filament\Resources\Books\Schemas\BookInfolist;
 use App\Filament\Resources\Books\Tables\BooksTable;
 use App\Models\Book;
+use App\Services\PrintService;
 use BackedEnum;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
+use Filament\Tables\Actions\Action;
+use Filament\Tables\Actions\BulkAction;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Collection;
 use UnitEnum;
 
 class BookResource extends Resource
@@ -42,7 +46,31 @@ class BookResource extends Resource
 
     public static function table(Table $table): Table
     {
-        return BooksTable::configure($table);
+        return BooksTable::configure($table)
+            ->actions([
+                Action::make('print_card')
+                    ->label('Print Card')
+                    ->icon('heroicon-o-printer')
+                    ->action(function (Book $record, PrintService $printService) {
+                        $pdf = $printService->generateBookCards(collect([$record]));
+                        return response()->streamDownload(
+                            fn () => print($pdf),
+                            "book-card-{$record->public_id}.pdf"
+                        );
+                    }),
+            ])
+            ->bulkActions([
+                BulkAction::make('print_cards')
+                    ->label('Print Cards')
+                    ->icon('heroicon-o-printer')
+                    ->action(function (Collection $records, PrintService $printService) {
+                        $pdf = $printService->generateBookCards($records);
+                        return response()->streamDownload(
+                            fn () => print($pdf),
+                            "book-cards-" . now()->format('Y-m-d') . ".pdf"
+                        );
+                    }),
+            ]);
     }
 
     public static function getRelations(): array

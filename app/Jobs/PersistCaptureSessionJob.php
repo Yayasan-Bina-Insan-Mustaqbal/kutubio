@@ -58,25 +58,36 @@ class PersistCaptureSessionJob implements ShouldQueue
             ->latest()
             ->first()?->payload ?? [];
 
+        // Fallback to ISBN from back_image_meta or raw capture
+        $isbn = $qrData['decoded_text'] ?? null;
+        if (! $isbn) {
+            $isbn = $this->captureSession->back_image_meta['barcode_value'] ?? null;
+        }
+        if (! $isbn) {
+            $isbn = $this->captureSession->metadataRevisions()
+                ->where('source_stage', 'capture_page')
+                ->latest()
+                ->first()?->payload['isbn'] ?? null;
+        }
+
         if (empty($visionData['title'])) {
             throw new \Exception('Cannot persist: No book title found in metadata revisions.');
         }
 
-        DB::transaction(function () use ($visionData, $qrData) {
+        DB::transaction(function () use ($visionData, $isbn) {
             // 1. Find or Create Book
-            // For MVP, we use the title to match if ISBN is missing.
-            // In a real app, ISBN matching would be primary.
-            $isbn = $qrData['decoded_text'] ?? null;
-
             $book = null;
             if ($isbn) {
                 $book = Book::where('isbn13', $isbn)->first();
             }
 
             if (! $book) {
+                $authors = $visionData['authors'] ?? [];
+                $authorsDisplay = is_array($authors) ? implode(', ', $authors) : $authors;
+
                 $book = Book::create([
                     'title' => $visionData['title'],
-                    'authors_display' => implode(', ', (array) ($visionData['authors'] ?? [])),
+                    'authors_display' => $authorsDisplay,
                     'isbn13' => $isbn,
                     'publisher' => $visionData['publisher'] ?? null,
                     'subtitle' => $visionData['subtitle'] ?? null,
