@@ -36,12 +36,23 @@ final class SurrealDbClient
     private function token(): string
     {
         return Cache::remember('surrealdb.token', now()->addMinutes(50), function (): string {
-            $response = $this->http()->post('/signin', [
-                'ns' => config('surrealdb.namespace'),
-                'db' => config('surrealdb.database'),
+            $payload = [
                 'user' => config('surrealdb.username'),
                 'pass' => config('surrealdb.password'),
-            ]);
+            ];
+
+            // Only include ns and db if the user is not root, 
+            // as system users must authenticate at the system level.
+            if (config('surrealdb.username') !== 'root') {
+                if ($ns = config('surrealdb.namespace')) {
+                    $payload['ns'] = $ns;
+                }
+                if ($db = config('surrealdb.database')) {
+                    $payload['db'] = $db;
+                }
+            }
+
+            $response = $this->http()->post('/signin', $payload);
 
             if ($response->failed()) {
                 throw new RuntimeException('SurrealDB signin failed: '.$response->body());
