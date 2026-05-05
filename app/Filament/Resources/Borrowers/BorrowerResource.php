@@ -2,23 +2,25 @@
 
 namespace App\Filament\Resources\Borrowers;
 
+use App\Enums\BorrowerType;
 use App\Filament\Resources\Borrowers\Pages\CreateBorrower;
 use App\Filament\Resources\Borrowers\Pages\EditBorrower;
 use App\Filament\Resources\Borrowers\Pages\ListBorrowers;
 use App\Filament\Resources\Borrowers\Pages\ViewBorrower;
 use App\Models\Borrower;
-use App\Enums\BorrowerType;
+use BackedEnum;
+use Filament\Actions\BulkActionGroup;
+use Filament\Actions\DeleteBulkAction;
+use Filament\Actions\EditAction;
+use Filament\Actions\ViewAction;
 use Filament\Forms\Components\Select;
-use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Textarea;
+use Filament\Forms\Components\TextInput;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
-use Filament\Tables\Table;
 use Filament\Tables\Columns\TextColumn;
-use Filament\Tables\Columns\SelectColumn;
-use Filament\Infolists\Components\TextEntry;
-use BackedEnum;
+use Filament\Tables\Table;
 use UnitEnum;
 
 class BorrowerResource extends Resource
@@ -78,12 +80,12 @@ class BorrowerResource extends Resource
                 //
             ])
             ->actions([
-                \Filament\Tables\Actions\ViewAction::make(),
-                \Filament\Tables\Actions\EditAction::make(),
+                ViewAction::make(),
+                EditAction::make(),
             ])
             ->bulkActions([
-                \Filament\Tables\Actions\BulkActionGroup::make([
-                    \Filament\Tables\Actions\DeleteBulkAction::make(),
+                BulkActionGroup::make([
+                    DeleteBulkAction::make(),
                 ]),
             ]);
     }

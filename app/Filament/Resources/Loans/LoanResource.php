@@ -2,26 +2,29 @@
 
 namespace App\Filament\Resources\Loans;
 
+use App\Enums\BookCopyStatus;
+use App\Enums\LoanStatus;
 use App\Filament\Resources\Loans\Pages\CreateLoan;
 use App\Filament\Resources\Loans\Pages\EditLoan;
 use App\Filament\Resources\Loans\Pages\ListLoans;
 use App\Filament\Resources\Loans\Pages\ViewLoan;
-use App\Models\Loan;
 use App\Models\BookCopy;
-use App\Models\Borrower;
-use App\Enums\LoanStatus;
-use App\Enums\BookCopyStatus;
-use Filament\Forms\Components\Select;
+use App\Models\Loan;
+use BackedEnum;
+use Filament\Actions\Action;
+use Filament\Actions\BulkActionGroup;
+use Filament\Actions\DeleteBulkAction;
+use Filament\Actions\EditAction;
+use Filament\Actions\ViewAction;
 use Filament\Forms\Components\DateTimePicker;
+use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
+use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
-use Filament\Tables\Table;
 use Filament\Tables\Columns\TextColumn;
-use Filament\Tables\Actions\Action;
-use Filament\Notifications\Notification;
-use BackedEnum;
+use Filament\Tables\Table;
 use UnitEnum;
 
 class LoanResource extends Resource
@@ -58,6 +61,7 @@ class LoanResource extends Resource
                                 return [$copy->id => "{$copy->book->title} ({$copy->public_id})"];
                             });
                         }
+
                         return BookCopy::all()->mapWithKeys(function ($copy) {
                             return [$copy->id => "{$copy->book->title} ({$copy->public_id})"];
                         });
@@ -125,12 +129,12 @@ class LoanResource extends Resource
                             ->success()
                             ->send();
                     }),
-                \Filament\Tables\Actions\ViewAction::make(),
-                \Filament\Tables\Actions\EditAction::make(),
+                ViewAction::make(),
+                EditAction::make(),
             ])
             ->bulkActions([
-                \Filament\Tables\Actions\BulkActionGroup::make([
-                    \Filament\Tables\Actions\DeleteBulkAction::make(),
+                BulkActionGroup::make([
+                    DeleteBulkAction::make(),
                 ]),
             ]);
     }

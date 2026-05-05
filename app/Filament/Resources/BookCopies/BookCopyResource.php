@@ -13,14 +13,14 @@ use App\Models\BookCopy;
 use App\Models\PrintProfile;
 use App\Services\PrintService;
 use BackedEnum;
+use Filament\Actions\Action;
+use Filament\Actions\BulkAction;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
-use Filament\Tables\Actions\Action;
-use Filament\Tables\Actions\BulkAction;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 use UnitEnum;
@@ -68,9 +68,10 @@ class BookCopyResource extends Resource
                     ])
                     ->action(function (BookCopy $record, array $data, PrintService $printService) {
                         $profile = PrintProfile::findOrFail($data['profile_id']);
-                        $pdf = $printService->generateStickerSheet(collect([$record]), $profile, (int)$data['skip_slots']);
+                        $pdf = $printService->generateStickerSheet(collect([$record]), $profile, (int) $data['skip_slots']);
+
                         return response()->streamDownload(
-                            fn () => print($pdf),
+                            fn () => print ($pdf),
                             "sticker-{$record->public_id}.pdf"
                         );
                     }),
@@ -93,10 +94,11 @@ class BookCopyResource extends Resource
                     ])
                     ->action(function (Collection $records, array $data, PrintService $printService) {
                         $profile = PrintProfile::findOrFail($data['profile_id']);
-                        $pdf = $printService->generateStickerSheet($records, $profile, (int)$data['skip_slots']);
+                        $pdf = $printService->generateStickerSheet($records, $profile, (int) $data['skip_slots']);
+
                         return response()->streamDownload(
-                            fn () => print($pdf),
-                            "stickers-" . now()->format('Y-m-d') . ".pdf"
+                            fn () => print ($pdf),
+                            'stickers-'.now()->format('Y-m-d').'.pdf'
                         );
                     }),
             ]);

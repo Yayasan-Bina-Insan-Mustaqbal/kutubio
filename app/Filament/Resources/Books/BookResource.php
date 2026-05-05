@@ -12,12 +12,12 @@ use App\Filament\Resources\Books\Tables\BooksTable;
 use App\Models\Book;
 use App\Services\PrintService;
 use BackedEnum;
+use Filament\Actions\Action;
+use Filament\Actions\BulkAction;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
-use Filament\Tables\Actions\Action;
-use Filament\Tables\Actions\BulkAction;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 use UnitEnum;
@@ -53,8 +53,9 @@ class BookResource extends Resource
                     ->icon('heroicon-o-printer')
                     ->action(function (Book $record, PrintService $printService) {
                         $pdf = $printService->generateBookCards(collect([$record]));
+
                         return response()->streamDownload(
-                            fn () => print($pdf),
+                            fn () => print ($pdf),
                             "book-card-{$record->public_id}.pdf"
                         );
                     }),
@@ -65,9 +66,10 @@ class BookResource extends Resource
                     ->icon('heroicon-o-printer')
                     ->action(function (Collection $records, PrintService $printService) {
                         $pdf = $printService->generateBookCards($records);
+
                         return response()->streamDownload(
-                            fn () => print($pdf),
-                            "book-cards-" . now()->format('Y-m-d') . ".pdf"
+                            fn () => print ($pdf),
+                            'book-cards-'.now()->format('Y-m-d').'.pdf'
                         );
                     }),
             ]);

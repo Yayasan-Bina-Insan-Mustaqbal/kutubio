@@ -3,9 +3,9 @@
 namespace App\Filament\Resources\Users\Tables;
 
 use App\Services\SurrealDbClient;
-use Filament\Tables\Actions\BulkActionGroup;
-use Filament\Tables\Actions\DeleteBulkAction;
-use Filament\Tables\Actions\EditAction;
+use Filament\Actions\BulkActionGroup;
+use Filament\Actions\DeleteBulkAction;
+use Filament\Actions\EditAction;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 
@@ -28,7 +28,7 @@ class UsersTable
                             return 'Not linked';
                         }
 
-                        // We might want to cache this or eager load if possible, 
+                        // We might want to cache this or eager load if possible,
                         // but for Filament simple view this is okay for small sets.
                         $client = app(SurrealDbClient::class);
                         $result = $client->query(<<<'SURQL'
