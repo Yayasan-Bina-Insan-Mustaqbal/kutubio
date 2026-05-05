@@ -55,8 +55,11 @@ class BookResource extends Resource
                         $pdf = $printService->generateBookCards(collect([$record]));
 
                         return response()->streamDownload(
-                            fn () => print ($pdf),
-                            "book-card-{$record->public_id}.pdf"
+                            fn () => print($pdf),
+                            "book-card-{$record->public_id}.pdf",
+                            [
+                                'Content-Type' => 'application/pdf',
+                            ]
                         );
                     }),
             ])
@@ -68,8 +71,11 @@ class BookResource extends Resource
                         $pdf = $printService->generateBookCards($records);
 
                         return response()->streamDownload(
-                            fn () => print ($pdf),
-                            'book-cards-'.now()->format('Y-m-d').'.pdf'
+                            fn () => print($pdf),
+                            'book-cards-'.now()->format('Y-m-d').'.pdf',
+                            [
+                                'Content-Type' => 'application/pdf',
+                            ]
                         );
                     }),
             ]);
