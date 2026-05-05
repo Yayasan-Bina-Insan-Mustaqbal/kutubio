@@ -40,10 +40,14 @@ final class PrintService
      */
     public function generateStickerSheet(Collection $items, PrintProfile $profile, int $skipSlots = 0): string
     {
+        $settings = \App\Models\GeneralSetting::find(1);
+        $libraryName = $settings?->library_name ?? 'Kutubio Library';
+
         $html = View::make('print.sticker-sheet', [
             'items' => $items,
             'profile' => $profile,
             'skipSlots' => $skipSlots,
+            'libraryName' => $libraryName,
         ])->render();
 
         return $this->renderPdfFromHtml($html, [
