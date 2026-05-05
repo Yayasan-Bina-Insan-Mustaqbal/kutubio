@@ -29,7 +29,13 @@ The application was not responding via the Tailscale HTTPS domain (`https://dock
    - `VITE_HMR_PORT=5174`
    - `VITE_HMR_PROTOCOL=wss`
 
+## Resolution - PDF Downloads
+1. **Route Implementation**: Added a signed temporary download route at `/download/temp/{filename}`.
+2. **Filament Update**: Changed `streamDownload` to a store-then-redirect pattern in `BookCopyResource` and `BookResource`.
+3. **Browser Compatibility**: Identified that the Antigravity (Agentic) browser was handling binary streams incorrectly.
+
 ## Prevention & Future References
 - Always check `tailscale serve status` if the domain is down.
 - Ensure `VITE_HMR_HOST` matches the Tailscale domain being used to access the site.
 - If switching between `npm run dev` and production assets, ensure `public/hot` is managed correctly.
+- **Browser Compatibility Note**: If downloads fail or show UUID names, verify the behavior in a standard browser (Firefox/Chrome).
