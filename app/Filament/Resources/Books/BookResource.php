@@ -20,6 +20,9 @@ use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\URL;
+use Illuminate\Support\Str;
 use UnitEnum;
 
 class BookResource extends Resource
@@ -54,12 +57,12 @@ class BookResource extends Resource
                     ->action(function (Book $record, PrintService $printService) {
                         $pdf = $printService->generateBookCards(collect([$record]));
 
-                        return response()->streamDownload(
-                            fn () => print($pdf),
-                            "book-card-{$record->public_id}.pdf",
-                            [
-                                'Content-Type' => 'application/pdf',
-                            ]
+                        $filename = Str::uuid()->toString().'.pdf';
+                        $originalName = "book-card-{$record->public_id}.pdf";
+                        Storage::disk('local')->put('temp-pdfs/'.$filename, $pdf);
+
+                        return redirect()->away(
+                            URL::signedRoute('download.temp', ['filename' => $filename, 'name' => $originalName])
                         );
                     }),
             ])
@@ -70,12 +73,12 @@ class BookResource extends Resource
                     ->action(function (Collection $records, PrintService $printService) {
                         $pdf = $printService->generateBookCards($records);
 
-                        return response()->streamDownload(
-                            fn () => print($pdf),
-                            'book-cards-'.now()->format('Y-m-d').'.pdf',
-                            [
-                                'Content-Type' => 'application/pdf',
-                            ]
+                        $filename = Str::uuid()->toString().'.pdf';
+                        $originalName = 'book-cards-'.now()->format('Y-m-d').'.pdf';
+                        Storage::disk('local')->put('temp-pdfs/'.$filename, $pdf);
+
+                        return redirect()->away(
+                            URL::signedRoute('download.temp', ['filename' => $filename, 'name' => $originalName])
                         );
                     }),
             ]);
