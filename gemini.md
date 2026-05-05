@@ -41,3 +41,8 @@ If the Tailscale HTTPS domain is not responding or CSS is missing:
    ```bash
    rm public/hot
    ```
+
+### Troubleshooting PDF Downloads
+- **Livewire/Filament Actions**: Use the "Store to temp and redirect" pattern via signed URLs.
+- **Gotenberg**: Ensure `gotenberg:3000` is reachable within the docker network.
+- **Browser Issues**: If downloads come as UUIDs without `.pdf`, test in a standard browser (Firefox/Chrome) instead of the agentic browser.
