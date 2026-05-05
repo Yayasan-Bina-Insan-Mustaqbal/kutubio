@@ -5,17 +5,21 @@ namespace App\Filament\Pages;
 use App\Models\GeneralSetting;
 use BackedEnum;
 use Filament\Actions\Action;
-use Filament\Forms\Components\Section;
+use Filament\Schemas\Components\Section;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Textarea;
-use Filament\Forms\Form;
+use Filament\Forms\Concerns\InteractsWithForms;
+use Filament\Forms\Contracts\HasForms;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
+use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use UnitEnum;
 
-class ManageSettings extends Page
+class ManageSettings extends Page implements HasForms
 {
+    use InteractsWithForms;
+
     protected static BackedEnum|string|null $navigationIcon = Heroicon::OutlinedCog6Tooth;
 
     protected static UnitEnum|string|null $navigationGroup = 'Settings';
@@ -40,9 +44,9 @@ class ManageSettings extends Page
         $this->form->fill($settings->toArray());
     }
 
-    public function form(Form $form): Form
+    public function form(Schema $schema): Schema
     {
-        return $form
+        return $schema
             ->schema([
                 Section::make('Library Information')
                     ->description('General information about your library.')
