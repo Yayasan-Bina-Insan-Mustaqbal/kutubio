@@ -76,7 +76,7 @@
             @foreach ($items as $item)
                 <div class="slot">
                     <div class="qr">
-                        {!! QrCode::size(100)->format('svg')->generate($item->qr_payload ?? $item->public_id) !!}
+                        {!! \SimpleSoftwareIO\QrCode\Facades\QrCode::size(100)->format('svg')->generate($item->qr_payload ?? $item->public_id) !!}
                     </div>
                     <div class="meta">
                         <div class="title">{{ $item->book->title ?? $item->name ?? 'Untitled' }}</div>
