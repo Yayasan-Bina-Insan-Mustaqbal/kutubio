@@ -23,6 +23,9 @@ use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\URL;
+use Illuminate\Support\Str;
 use UnitEnum;
 
 class BookCopyResource extends Resource
@@ -70,12 +73,12 @@ class BookCopyResource extends Resource
                         $profile = PrintProfile::findOrFail($data['profile_id']);
                         $pdf = $printService->generateStickerSheet(collect([$record]), $profile, (int) $data['skip_slots']);
 
-                        return response()->streamDownload(
-                            fn () => print($pdf),
-                            "sticker-{$record->public_id}.pdf",
-                            [
-                                'Content-Type' => 'application/pdf',
-                            ]
+                        $filename = Str::uuid()->toString().'.pdf';
+                        $originalName = "sticker-{$record->public_id}.pdf";
+                        Storage::disk('local')->put('temp-pdfs/'.$filename, $pdf);
+
+                        return redirect()->away(
+                            URL::signedRoute('download.temp', ['filename' => $filename, 'name' => $originalName])
                         );
                     }),
             ])
@@ -99,12 +102,12 @@ class BookCopyResource extends Resource
                         $profile = PrintProfile::findOrFail($data['profile_id']);
                         $pdf = $printService->generateStickerSheet($records, $profile, (int) $data['skip_slots']);
 
-                        return response()->streamDownload(
-                            fn () => print($pdf),
-                            'stickers-'.now()->format('Y-m-d').'.pdf',
-                            [
-                                'Content-Type' => 'application/pdf',
-                            ]
+                        $filename = Str::uuid()->toString().'.pdf';
+                        $originalName = 'stickers-'.now()->format('Y-m-d').'.pdf';
+                        Storage::disk('local')->put('temp-pdfs/'.$filename, $pdf);
+
+                        return redirect()->away(
+                            URL::signedRoute('download.temp', ['filename' => $filename, 'name' => $originalName])
                         );
                     }),
             ]);
