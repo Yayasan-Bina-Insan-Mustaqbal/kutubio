@@ -71,8 +71,11 @@ class BookCopyResource extends Resource
                         $pdf = $printService->generateStickerSheet(collect([$record]), $profile, (int) $data['skip_slots']);
 
                         return response()->streamDownload(
-                            fn () => print ($pdf),
-                            "sticker-{$record->public_id}.pdf"
+                            fn () => print($pdf),
+                            "sticker-{$record->public_id}.pdf",
+                            [
+                                'Content-Type' => 'application/pdf',
+                            ]
                         );
                     }),
             ])
@@ -97,8 +100,11 @@ class BookCopyResource extends Resource
                         $pdf = $printService->generateStickerSheet($records, $profile, (int) $data['skip_slots']);
 
                         return response()->streamDownload(
-                            fn () => print ($pdf),
-                            'stickers-'.now()->format('Y-m-d').'.pdf'
+                            fn () => print($pdf),
+                            'stickers-'.now()->format('Y-m-d').'.pdf',
+                            [
+                                'Content-Type' => 'application/pdf',
+                            ]
                         );
                     }),
             ]);
