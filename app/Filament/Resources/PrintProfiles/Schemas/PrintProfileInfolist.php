@@ -34,6 +34,12 @@ class PrintProfileInfolist
                             ->suffix(' mm'),
                         TextEntry::make('slot_height_mm')
                             ->suffix(' mm'),
+                        TextEntry::make('gap_x_mm')
+                            ->label('Horizontal Gap')
+                            ->suffix(' mm'),
+                        TextEntry::make('gap_y_mm')
+                            ->label('Vertical Gap')
+                            ->suffix(' mm'),
                     ])
                     ->columns(2),
             ]);

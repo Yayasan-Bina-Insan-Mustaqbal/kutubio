@@ -21,6 +21,8 @@
             display: grid;
             grid-template-columns: repeat({{ $profile->grid_columns }}, {{ $profile->slot_width_mm }}mm);
             grid-template-rows: repeat({{ $profile->grid_rows }}, {{ $profile->slot_height_mm }}mm);
+            column-gap: {{ $profile->gap_x_mm }}mm;
+            row-gap: {{ $profile->gap_y_mm }}mm;
             padding-left: {{ $profile->offset_x_mm }}mm;
             padding-top: {{ $profile->offset_y_mm }}mm;
         }

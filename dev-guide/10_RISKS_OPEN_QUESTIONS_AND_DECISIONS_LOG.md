@@ -57,3 +57,11 @@ This step keeps unresolved items visible. Goal is prevent quiet assumption drift
 - Revisit before each major implementation phase.
 - Move resolved questions into concrete docs, not vague chat memory.
 - If new assumption changes earlier files, update source doc and this log together.
+
+## Incident Log
+
+### 2026-05-05: Missing CSS on Remote/Tailscale Access
+- **Symptom**: Admin panel appears without styles (no CSS).
+- **Root Cause**: Laravel's @vite helper detected `public/hot` and attempted to load assets from the Vite dev server on port 5174. However, Tailscale was only serving port 80/443 for the main app, making the Vite port unreachable from the external browser.
+- **Immediate Fix**: Removed `public/hot` and ran `vendor/bin/sail npm run build`.
+- **Long-term Decision**: Prefer static builds (`npm run build`) for remote development sessions over Tailscale. Consider adding `npm run build` to the Docker container startup sequence to ensure consistent state.

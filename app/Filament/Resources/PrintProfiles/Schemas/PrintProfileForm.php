@@ -50,6 +50,16 @@ class PrintProfileForm
                             ->numeric()
                             ->required()
                             ->minValue(1),
+                        TextInput::make('gap_x_mm')
+                            ->label('Horizontal Gap (mm)')
+                            ->numeric()
+                            ->required()
+                            ->default(0),
+                        TextInput::make('gap_y_mm')
+                            ->label('Vertical Gap (mm)')
+                            ->numeric()
+                            ->required()
+                            ->default(0),
                     ])
                     ->columns(2),
             ]);

@@ -1,59 +1,79 @@
 # 11. Local Development Networking & Proxying
 
-## Incident: Vite HMR and CORS Failures over Tailscale
+## Incident: Vite HMR and CSS Failures over Tailscale (Host Mismatch)
 
 ### Context
-When developing using **Tailscale Funnel/Serve** to access the local development environment via a public-ish tailnet HTTPS URL (e.g., `https://dockerdev.tail0faa6b.ts.net`), the default Vite configuration fails due to:
-1.  **CORS Mismatch:** The browser accesses the site via HTTPS, but Vite attempts to serve assets/HMR via `http://localhost:5173`.
-2.  **Host Header Security:** Vite 6+ blocks requests with unrecognized `Host` headers by default (returning `403 Forbidden`).
-3.  **HMR Protocol Mismatch:** Secure pages (HTTPS) require Secure WebSockets (`wss://`) for HMR to connect.
+When switching Tailscale environments or nodes (e.g., from `dockerdev` to `cachyos-abuhafi`), hardcoded hostnames in `vite.config.js` cause:
+1.  **CSS Loading Failures:** The browser attempts to load assets from the old, hardcoded host, resulting in 404s or connection timeouts.
+2.  **HMR Connection Errors:** WebSockets fail to connect because the HMR host doesn't match the current access URL.
+3.  **Port Conflicts (Zombie Processes):** Restaring `npm run dev` after a config change can fail with `Port in use` if the previous Vite process wasn't cleanly terminated inside the container.
 
 ### Resolution
 
-To fix this, `vite.config.js` must be explicitly configured to recognize the proxy and force the correct protocols.
+To prevent these issues, `vite.config.js` should be refactored to be **dynamic** using environment variables.
 
-#### 1. Vite Configuration (`vite.config.js`)
-The `server` block must include `allowedHosts`, `origin`, and a specific `hmr` configuration:
+#### 1. Dynamic Vite Configuration (`vite.config.js`)
+Use `loadEnv` to pull settings directly from `.env`:
 
 ```javascript
-    server: {
-        host: '0.0.0.0',
-        port: 5173,
-        strictPort: true,
-        cors: true,
-        allowedHosts: ['dockerdev.tail0faa6b.ts.net'],
-        hmr: {
-            host: 'dockerdev.tail0faa6b.ts.net',
-            protocol: 'wss',
-            clientPort: 5173,
-        },
-    },
-```
+import { defineConfig, loadEnv } from 'vite';
+import laravel from 'laravel-vite-plugin';
 
-*   **`allowedHosts`**: Prevents 403 errors when accessing via Tailscale URL.
-*   **`hmr.protocol: 'wss'`**: Ensures HMR works over the HTTPS proxy.
-*   **`hmr.host`**: Forces the browser to connect back to the Tailscale URL rather than localhost.
+export default defineConfig(({ mode }) => {
+    const env = loadEnv(mode, process.cwd(), '');
+
+    return {
+        plugins: [
+            laravel({
+                input: ['resources/css/app.css', 'resources/js/app.js', 'resources/css/filament/admin/theme.css'],
+                refresh: true,
+            }),
+        ],
+        server: {
+            host: '0.0.0.0',
+            port: parseInt(env.VITE_PORT ?? '5174'),
+            strictPort: true,
+            cors: true,
+            allowedHosts: [env.VITE_HMR_HOST],
+            hmr: {
+                host: env.VITE_HMR_HOST,
+                protocol: env.VITE_HMR_PROTOCOL ?? 'wss',
+                clientPort: parseInt(env.VITE_HMR_PORT ?? '5174'),
+            },
+        },
+    };
+});
+```
 
 #### 2. Environment Variables (`.env`)
-The Laravel application must be aware of the external URL to generate correct asset links:
+Ensure these variables match your current Tailscale node:
 
 ```env
-APP_URL=https://dockerdev.tail0faa6b.ts.net
-# Note: VITE_DEV_SERVER_URL can also be used if dynamic switching is needed
+APP_URL=https://cachyos-abuhafi.tail0faa6b.ts.net
+VITE_HMR_HOST=cachyos-abuhafi.tail0faa6b.ts.net
+VITE_PORT=5174
+VITE_HMR_PORT=5174
+VITE_HMR_PROTOCOL=wss
 ```
 
-#### 3. Tailscale Setup
-Tailscale should proxy both the web server (80) and the Vite dev server (5173):
+### Troubleshooting: "Port already in use"
 
+If Vite fails to start even after stopping the command, a zombie process might be holding the port inside the container.
+
+**Fix:**
 ```bash
-# Proxy the main app
-tailscale serve --bg 127.0.0.1:80
+# Enter the container and kill any process on the Vite port
+./vendor/bin/sail exec laravel.test fuser -k 5174/tcp
 
-# Proxy Vite (required for HMR and asset loading via HTTPS)
-tailscale serve --bg --https=5173 127.0.0.1:5173
+# OR (if fuser is missing)
+./vendor/bin/sail exec laravel.test ps aux | grep vite
+./vendor/bin/sail exec laravel.test kill -9 <PID>
+
+# OR Restart the container entirely
+./vendor/bin/sail restart laravel.test
 ```
 
 ### Verification
-- Check `public/hot` file: It should contain the Tailscale URL if `npm run dev` is running.
-- Browser Console: Ensure `@vite/client` loads with `200 OK` and MIME type `application/javascript`.
-- WebSocket: Ensure the "Network" tab shows a successful `wss://` connection to the HMR host.
+- **Filament CSS**: If the admin panel looks "plain" (no styling), check the browser console for failed requests to `:5174`.
+- **HMR**: Ensure the browser console shows `[vite] connected`.
+- **Hot File**: Verify `public/hot` contains the correct URL.

@@ -44,6 +44,7 @@ This step turns raw and AI-enriched intake into trusted library data. Main focus
    - Generate HTML/CSS in physical units
    - Render through Gotenberg
    - Support starting slot offset if sticker sheet format is fixed
+   - Document exact label dimensions (e.g., [T&J 103](/home/abuhafi/Project/kutubio/dev-guide/reference/LABEL_DIMENSIONS.md))
 7. Keep printer calibration adjustable.
    - Store printer profile or settings record
    - Support X/Y nudge values
