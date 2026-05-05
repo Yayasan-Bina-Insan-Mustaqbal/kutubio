@@ -73,7 +73,29 @@ If Vite fails to start even after stopping the command, a zombie process might b
 ./vendor/bin/sail restart laravel.test
 ```
 
-### Verification
+### Troubleshooting: Tailscale Serve Misconfiguration
+
+If the HTTPS domain is not responding at all, the `tailscale serve` configuration on the node might be pointing to the wrong port.
+
+**Check Status:**
+```bash
+tailscale serve status
+```
+
+**Fix:**
+Ensure the mapping matches your Sail ports (default Laravel is 8080 on host, and Vite is 5174).
+```bash
+# Map root to Laravel
+tailscale serve --https 443 http://127.0.0.1:8080
+
+# Map Vite port
+tailscale serve --https 5174 http://127.0.0.1:5174
+```
+
+### Verification & Cleanup
 - **Filament CSS**: If the admin panel looks "plain" (no styling), check the browser console for failed requests to `:5174`.
 - **HMR**: Ensure the browser console shows `[vite] connected`.
-- **Hot File**: Verify `public/hot` contains the correct URL.
+- **Hot File**: Verify `public/hot` contains the correct URL. If you are switching between `npm run dev` and production built assets, you MUST delete `public/hot` manually if it gets stuck.
+  ```bash
+  rm public/hot
+  ```
