@@ -30,9 +30,7 @@
     # Bootstrap vendor directory so Sail build context is available
     if [ ! -d vendor ]; then
         docker run --rm \
-            -v $(pwd):/var/www/html \
-            -w /var/www/html \
-            laravelsail/php83-composer:latest \
+            -v $(pwd):/app \
             composer install --ignore-platform-reqs --no-interaction --no-scripts
     fi
 
