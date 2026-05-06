@@ -33,8 +33,7 @@ class PrintProfileForm
                 Section::make('Sheet layout')
                     ->schema([
                         TextInput::make('name')
-...
-
+                            ->required()
                             ->maxLength(255)
                             ->unique(ignoreRecord: true),
                         Toggle::make('is_default'),
