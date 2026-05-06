@@ -15,6 +15,7 @@ use Filament\Resources\Resource;
 use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Section;
 use Filament\Infolists\Components\TextEntry;
+use Filament\Infolists\Components\CodeEntry;
 use Filament\Schemas\Schema;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
@@ -74,7 +75,6 @@ class JobResource extends Resource
                     ->schema([
                         TextEntry::make('exception')
                             ->label('')
-                            ->prose()
                             ->markdown()
                             ->fontFamily('mono')
                             ->wrap(),
@@ -84,9 +84,9 @@ class JobResource extends Resource
 
                 Section::make('Payload')
                     ->schema([
-                        TextEntry::make('payload')
+                        CodeEntry::make('payload')
                             ->label('')
-                            ->json(),
+                            ->language('json'),
                     ])
                     ->collapsible()
                     ->collapsed(),
