@@ -74,7 +74,7 @@ class BooksTable
                             ->label('Metadata Provider')
                             ->options([
                                 'open_library' => 'Open Library (ISBN)',
-                                'google_books' => 'Google Books (ISBN)',
+                                'isbn_search' => 'ISBN Search (HTML Scraper)',
                             ])
                             ->default('open_library')
                             ->required(),
@@ -108,7 +108,7 @@ class BooksTable
                                 ->label('Metadata Provider')
                                 ->options([
                                     'open_library' => 'Open Library (ISBN)',
-                                    'google_books' => 'Google Books (ISBN)',
+                                    'isbn_search' => 'ISBN Search (HTML Scraper)',
                                 ])
                                 ->default('open_library')
                                 ->required(),

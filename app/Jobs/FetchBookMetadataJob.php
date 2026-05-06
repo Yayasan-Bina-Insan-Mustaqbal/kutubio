@@ -10,6 +10,7 @@ use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 
 class FetchBookMetadataJob implements ShouldQueue
 {
@@ -34,8 +35,12 @@ class FetchBookMetadataJob implements ShouldQueue
         try {
             if ($this->provider === 'open_library') {
                 $this->fetchFromOpenLibrary($isbn);
-            } elseif ($this->provider === 'google_books') {
-                $this->fetchFromGoogleBooks($isbn);
+            } elseif ($this->provider === 'isbn_search') {
+                // Random delay to avoid blocking
+                $delay = rand(5, 15);
+                Log::info("FetchBookMetadataJob: Delaying for {$delay} seconds for ISBN Search...");
+                sleep($delay);
+                $this->fetchFromIsbnSearch($isbn);
             }
         } catch (\Exception $e) {
             Log::error("FetchBookMetadataJob: Error fetching metadata for ISBN {$isbn}: " . $e->getMessage());
@@ -90,53 +95,41 @@ class FetchBookMetadataJob implements ShouldQueue
         }
     }
 
-    protected function fetchFromGoogleBooks(string $isbn): void
+    protected function fetchFromIsbnSearch(string $isbn): void
     {
-        $response = Http::timeout(10)
-            ->get("https://www.googleapis.com/books/v1/volumes?q=isbn:{$isbn}");
+        $response = Http::timeout(15)
+            ->withUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36')
+            ->get("https://isbnsearch.org/isbn/{$isbn}");
 
         if ($response->failed()) {
-            Log::error("FetchBookMetadataJob: Google Books API request failed for ISBN {$isbn}");
+            Log::error("FetchBookMetadataJob: ISBN Search request failed for ISBN {$isbn}");
             return;
         }
 
-        $data = $response->json();
-
-        if (empty($data['items'])) {
-            Log::warning("FetchBookMetadataJob: No data found in Google Books for ISBN {$isbn}");
-            return;
-        }
-
-        $volumeInfo = $data['items'][0]['volumeInfo'];
+        $html = $response->body();
         $updates = [];
 
-        if (empty($this->book->title) && !empty($volumeInfo['title'])) {
-            $updates['title'] = $volumeInfo['title'];
+        // Simple Regex Scraping
+        if (empty($this->book->title) && preg_match('/<h1>(.*?)<\/h1>/s', $html, $matches)) {
+            $updates['title'] = trim($matches[1]);
         }
 
-        if (empty($this->book->authors_display) && !empty($volumeInfo['authors'])) {
-            $updates['authors_display'] = implode(', ', $volumeInfo['authors']);
+        if (empty($this->book->authors_display) && preg_match('/<strong>Author:<\/strong>\s*(.*?)\s*<\/p>/s', $html, $matches)) {
+            $updates['authors_display'] = trim($matches[1]);
         }
 
-        if (empty($this->book->publisher) && !empty($volumeInfo['publisher'])) {
-            $updates['publisher'] = $volumeInfo['publisher'];
+        if (empty($this->book->publisher) && preg_match('/<strong>Publisher:<\/strong>\s*(.*?)\s*<\/p>/s', $html, $matches)) {
+            $updates['publisher'] = trim($matches[1]);
         }
 
-        if (empty($this->book->page_count) && !empty($volumeInfo['pageCount'])) {
-            $updates['page_count'] = $volumeInfo['pageCount'];
-        }
-
-        if (empty($this->book->subtitle) && !empty($volumeInfo['subtitle'])) {
-            $updates['subtitle'] = $volumeInfo['subtitle'];
-        }
-
-        if (empty($this->book->synopsis) && !empty($volumeInfo['description'])) {
-            $updates['synopsis'] = Str::limit($volumeInfo['description'], 1000);
-        }
+        // ISBN Search doesn't usually show page count in the simple view but it shows "Published"
+        // We can use it to help verify or fill other fields if we had them.
 
         if (!empty($updates)) {
             $this->book->update($updates);
-            Log::info("FetchBookMetadataJob: Updated book {$this->book->id} with metadata from Google Books");
+            Log::info("FetchBookMetadataJob: Updated book {$this->book->id} with metadata from ISBN Search");
+        } else {
+            Log::warning("FetchBookMetadataJob: No updates found on ISBN Search for ISBN {$isbn}");
         }
     }
 }
