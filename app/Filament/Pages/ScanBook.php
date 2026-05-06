@@ -16,6 +16,7 @@ use Filament\Pages\Page;
 use Filament\Schemas\Schema;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\HtmlString;
+use Livewire\Attributes\On;
 use UnitEnum;
 
 class ScanBook extends Page implements HasForms
@@ -49,13 +50,6 @@ class ScanBook extends Page implements HasForms
         $this->form->fill();
     }
 
-    protected function getListeners(): array
-    {
-        return [
-            'qr-scanned' => 'handleQrScanned',
-        ];
-    }
-
     public function form(Schema $schema): Schema
     {
         return $schema
@@ -81,9 +75,15 @@ class ScanBook extends Page implements HasForms
             ->statePath('data');
     }
 
+    #[On('qr-scanned')]
     public function handleQrScanned(string $value): void
     {
-        if ($this->scannedQrCode === $value) return;
+        \Illuminate\Support\Facades\Log::info('QR Scanned on server:', ['value' => $value]);
+
+        if ($this->scannedQrCode === $value && $this->bookCopy) {
+            $this->dispatch('scanner-reset');
+            return;
+        }
 
         $this->scannedQrCode = $value;
         $this->bookCopy = BookCopy::with(['book', 'book.category'])->where('qr_payload', $value)->first();
@@ -97,6 +97,8 @@ class ScanBook extends Page implements HasForms
                 ->body("No book matches QR: {$value}")
                 ->danger()
                 ->send();
+            
+            $this->dispatch('scanner-reset');
             return;
         }
 

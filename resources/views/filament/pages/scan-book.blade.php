@@ -149,6 +149,7 @@
             let loopId = null;
 
             window.addEventListener('scanner-reset', () => {
+                console.log('Scanner reset received');
                 scanning = true;
                 if (!loopId) loopId = requestAnimationFrame(scanFrame);
             });
@@ -158,7 +159,6 @@
                     const check = () => window.BarcodeDetector ? true : false;
                     
                     if (!check()) {
-                        // Wait for polyfill
                         await new Promise(resolve => {
                             const interval = setInterval(() => {
                                 if (check()) {
@@ -223,11 +223,13 @@
                         const value = barcodes[0].rawValue;
                         console.log('QR Scanned:', value);
                         
-                        // Feedback
+                        // Visual feedback
                         statusDot.classList.add('scale-150');
                         setTimeout(() => statusDot.classList.remove('scale-150'), 200);
 
-                        @this.handleQrScanned(value);
+                        // Use Livewire.dispatch for standard event communication
+                        Livewire.dispatch('qr-scanned', { value: value });
+                        
                         scanning = false; // Pause while processing
                         loopId = null;
                         return;

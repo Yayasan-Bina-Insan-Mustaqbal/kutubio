@@ -29,7 +29,14 @@ final class SurrealDbClient
 
         $results = $response->json();
         
-        // SurrealDB /sql returns an array of results for each statement
+        // SurrealDB /sql returns an array of results for each statement.
+        // We check each result for potential errors.
+        foreach ($results as $result) {
+            if (isset($result['status']) && $result['status'] === 'ERR') {
+                throw new RuntimeException('SurrealDB query error: ' . ($result['information'] ?? $result['result'] ?? 'Unknown error'));
+            }
+        }
+
         return $results;
     }
 
