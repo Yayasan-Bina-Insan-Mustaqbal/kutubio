@@ -1,9 +1,11 @@
 <x-filament-panels::page>
-    <x-filament-panels::form wire:submit="save">
+    <form wire:submit="save" class="fi-form space-y-6">
         {{ $this->form }}
 
-        <x-filament-actions::actions
+        <x-filament::actions
             :actions="$this->getFormActions()"
         />
-    </x-filament-panels::form>
+    </form>
+
+    <x-filament-actions::modals />
 </x-filament-panels::page>

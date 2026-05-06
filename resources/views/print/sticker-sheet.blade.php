@@ -84,9 +84,9 @@
                             {{ $item->book->category->code ?? 'GEN' }}
                             {{ substr($item->book->authors_display ?? 'UNK', 0, 3) }}
                         </div>
-                        <div style="font-size: 5pt; margin-top: 1mm; color: #666; display: flex; justify-content: space-between;">
-                            <span>{{ $item->public_id }}</span>
-                            <span style="font-style: italic; font-weight: bold;">{{ $libraryName }}</span>
+                        <div style="font-size: 5pt; margin-top: 1mm; color: #666;">
+                            <div>{{ $item->public_id }}</div>
+                            <div style="font-style: italic; font-weight: bold; margin-top: 0.5mm;">{{ $libraryName }}</div>
                         </div>
                     </div>
                 </div>
