@@ -21,7 +21,9 @@ class CaptureSessionResource extends Resource
 {
     protected static ?string $model = CaptureSession::class;
 
-    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedCamera;
+    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedRectangleStack;
+
+    protected static ?string $navigationLabel = 'Capture Book';
 
     protected static string|UnitEnum|null $navigationGroup = 'Intake';
 

@@ -35,7 +35,9 @@ class CaptureBook extends Page
 
     protected static ?int $navigationSort = 5;
 
-    public static ?string $title = 'Capture Book';
+    public static ?string $title = 'Capture New Book';
+
+    protected static ?string $navigationLabel = 'Capture New Book';
 
     public ?string $frontImageData = null;
 
