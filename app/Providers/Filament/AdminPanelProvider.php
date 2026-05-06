@@ -26,6 +26,7 @@ class AdminPanelProvider extends PanelProvider
         return $panel
             ->default()
             ->id('admin')
+            ->sidebarCollapsibleOnDesktop()
             ->path('admin')
             ->login()
             ->colors([
@@ -41,6 +42,12 @@ class AdminPanelProvider extends PanelProvider
             ->widgets([
                 AccountWidget::class,
                 FilamentInfoWidget::class,
+            ])
+            ->navigationGroups([
+                \Filament\Navigation\NavigationGroup::make()
+                     ->label('Settings')
+                     ->collapsed()
+                     ->sort(100),
             ])
             ->middleware([
                 EncryptCookies::class,

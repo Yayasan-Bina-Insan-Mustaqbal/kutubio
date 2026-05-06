@@ -18,6 +18,7 @@ use Filament\Actions\DeleteAction;
 use Filament\Actions\ForceDeleteAction;
 use Filament\Actions\RestoreAction;
 use Filament\Forms\Components\Textarea;
+use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
@@ -55,24 +56,10 @@ class BookResource extends Resource
     {
         return BooksTable::configure($table)
             ->actions([
-                Action::make('print_card')
-                    ->label('Print Card')
-                    ->icon('heroicon-o-printer')
-                    ->action(function (Book $record, PrintService $printService) {
-                        $pdf = $printService->generateBookCards(collect([$record]));
-
-                        $filename = Str::uuid()->toString().'.pdf';
-                        $originalName = "book-card-{$record->public_id}.pdf";
-                        Storage::disk('local')->put('temp-pdfs/'.$filename, $pdf);
-
-                        return redirect()->away(
-                            URL::signedRoute('download.temp', ['filename' => $filename, 'name' => $originalName])
-                        );
-                    }),
-
                 Action::make('flag_for_deletion')
                     ->label('Flag for Deletion')
                     ->icon('heroicon-o-flag')
+                    ->iconButton()
                     ->color('danger')
                     ->hidden(fn () => auth()->user()->isAdmin())
                     ->form([
@@ -90,30 +77,12 @@ class BookResource extends Resource
                             ->send();
                     }),
 
-                DeleteAction::make()
-                    ->visible(fn () => auth()->user()->isAdmin()),
-
-                RestoreAction::make()
-                    ->visible(fn () => auth()->user()->isAdmin()),
-
-                ForceDeleteAction::make()
-                    ->visible(fn () => auth()->user()->isAdmin()),
+                DeleteAction::make()->iconButton()->hidden(),
+                RestoreAction::make()->iconButton()->hidden(),
+                ForceDeleteAction::make()->iconButton()->hidden(),
             ])
             ->bulkActions([
-                BulkAction::make('print_cards')
-                    ->label('Print Cards')
-                    ->icon('heroicon-o-printer')
-                    ->action(function (Collection $records, PrintService $printService) {
-                        $pdf = $printService->generateBookCards($records);
-
-                        $filename = Str::uuid()->toString().'.pdf';
-                        $originalName = 'book-cards-'.now()->format('Y-m-d').'.pdf';
-                        Storage::disk('local')->put('temp-pdfs/'.$filename, $pdf);
-
-                        return redirect()->away(
-                            URL::signedRoute('download.temp', ['filename' => $filename, 'name' => $originalName])
-                        );
-                    }),
+                //
             ]);
     }
 
