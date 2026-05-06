@@ -34,7 +34,7 @@ class SyncBorrowersFromSurrealDbJob implements ShouldQueue
         try {
             // Query for students, teachers, and staff
             // We assume a 'person' table where 'type' defines the role
-            $surql = "SELECT *, string::split(string::from(id), ':')[1] as sid FROM person WHERE type IN ['student', 'teacher', 'staff'];";
+            $surql = "SELECT *, record::id(id) as sid FROM person WHERE type IN ['student', 'teacher', 'staff'];";
             
             $results = $client->query($surql);
 
