@@ -6,7 +6,7 @@ use Filament\Pages\Page;
 
 class ScanBook extends Page
 {
-    protected static ?string $navigationIcon = 'heroicon-o-camera';
+    protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-camera';
 
     protected static string $view = 'filament.pages.scan-book';
 
@@ -14,7 +14,7 @@ class ScanBook extends Page
 
     public static ?string $title = 'Capture Book';
 
-    protected static ?string $navigationGroup = 'Circulation';
+    protected static string|\UnitEnum|null $navigationGroup = 'Circulation';
 
     protected static ?int $navigationSort = 1;
 }
