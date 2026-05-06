@@ -63,8 +63,8 @@ class LoanRecap extends TableWidget
                     ->label('Copy')
                     ->icon('heroicon-m-clipboard')
                     ->color('success')
-                    ->extraAttributes([
-                        'onclick' => "
+                    ->extraAttributes(fn (?Loan $record): array => [
+                        'onclick' => $record ? "
                             const text = this.getAttribute('data-reminder');
                             navigator.clipboard.writeText(text).then(() => {
                                 new FilamentNotification()
@@ -72,14 +72,12 @@ class LoanRecap extends TableWidget
                                     .success()
                                     .send();
                             });
-                        ",
-                    ])
-                    ->evaluate(fn (Loan $record) => [
-                        'data-reminder' => "Assalamu'alaikum, mengingatkan kepada {$record->borrower->name} " . 
+                        " : "",
+                        'data-reminder' => $record ? "Assalamu'alaikum, mengingatkan kepada {$record->borrower->name} " . 
                                            ($record->borrower->class ? "({$record->borrower->class}) " : "") . 
                                            "untuk mengembalikan buku \"{$record->bookCopy->book->title}\" yang " . 
                                            ($record->due_at->isPast() ? "sudah jatuh tempo pada " : "akan jatuh tempo pada ") . 
-                                           $record->due_at->format('d M Y') . ". Syukran.",
+                                           $record->due_at->format('d M Y') . ". Syukran." : "",
                     ]),
             ])
             ->bulkActions([
