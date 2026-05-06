@@ -88,6 +88,17 @@ services:
             - '${FORWARD_GOTENBERG_PORT:-3010}:3000'
         networks:
             - sail
+    searxng:
+        image: 'searxng/searxng:latest'
+        environment:
+            SEARXNG_SECRET: '${SEARXNG_SECRET:-kutubio_secret_key_for_searxng}'
+            SEARXNG_BASE_URL: 'http://searxng:8080'
+            SEARXNG_LIMITER: 'false'
+            SEARXNG_SEARCH_FORMATS: 'json'
+        networks:
+            - sail
+        depends_on:
+            - redis
 networks:
     sail:
         driver: bridge

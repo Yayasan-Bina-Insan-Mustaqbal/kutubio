@@ -34,8 +34,8 @@ class FetchBookMetadataJob implements ShouldQueue
             } elseif ($this->provider === 'isbn_search') {
                 if (!$isbn) return;
                 $this->withDelay(fn() => $this->fetchFromIsbnSearch($isbn));
-            } elseif ($this->provider === 'duckduckgo') {
-                $this->withDelay(fn() => $this->fetchFromDuckDuckGo());
+            } elseif ($this->provider === 'searxng') {
+                $this->withDelay(fn() => $this->fetchFromSearxNG());
             }
         } catch (\Exception $e) {
             Log::error("FetchBookMetadataJob: Error fetching metadata for book {$this->book->id}: " . $e->getMessage());
@@ -130,28 +130,37 @@ class FetchBookMetadataJob implements ShouldQueue
         }
     }
 
-    protected function fetchFromDuckDuckGo(): void
+    protected function fetchFromSearxNG(): void
     {
         $query = "ISBN " . ($this->book->isbn13 ?? ($this->book->title . " " . $this->book->authors_display));
         
-        Log::info("FetchBookMetadataJob: Searching DuckDuckGo for: {$query}");
+        Log::info("FetchBookMetadataJob: Searching SearxNG for: {$query}");
 
-        $response = Http::timeout(15)
-            ->withUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36')
-            ->get("https://duckduckgo.com/html/?q=" . urlencode($query));
+        // Using the internal docker service name 'searxng'
+        $response = Http::timeout(20)
+            ->get("http://searxng:8080/search", [
+                'q' => $query,
+                'format' => 'json',
+            ]);
 
         if ($response->failed()) {
-            Log::error("FetchBookMetadataJob: DuckDuckGo search failed for query: {$query}");
+            Log::error("FetchBookMetadataJob: SearxNG search failed for query: {$query}");
             return;
         }
 
-        $html = $response->body();
+        $data = $response->json();
+        $results = $data['results'] ?? [];
+        
+        $combinedText = "";
+        foreach ($results as $result) {
+            $combinedText .= ($result['title'] ?? '') . " " . ($result['content'] ?? '') . " ";
+        }
         
         // Look for ISBN-13 patterns in search results if book doesn't have one
         if (empty($this->book->isbn13)) {
-            if (preg_match('/978[0-9]{10}/', $html, $matches)) {
+            if (preg_match('/978[0-9]{10}/', $combinedText, $matches)) {
                 $foundIsbn = $matches[0];
-                Log::info("FetchBookMetadataJob: Discovered ISBN {$foundIsbn} via DuckDuckGo");
+                Log::info("FetchBookMetadataJob: Discovered ISBN {$foundIsbn} via SearxNG");
                 $this->book->update(['isbn13' => $foundIsbn]);
                 
                 // Now that we have an ISBN, try structured fetching
@@ -160,6 +169,6 @@ class FetchBookMetadataJob implements ShouldQueue
             }
         }
 
-        Log::info("FetchBookMetadataJob: No actionable ISBN found in DuckDuckGo results.");
+        Log::info("FetchBookMetadataJob: No actionable ISBN found in SearxNG results.");
     }
 }
