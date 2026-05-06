@@ -27,7 +27,7 @@ RUN apt-get update \
 
 # Install PHP extensions using the helper (much smaller than apt-get install php-*)
 COPY --from=mlocati/php-extension-installer /usr/bin/install-php-extensions /usr/local/bin/
-RUN install-php-extensions pgsql pdo_pgsql gd bcmath intl zip msgpack igbinary redis swoole imagick
+RUN install-php-extensions pgsql pdo_pgsql gd bcmath intl zip msgpack igbinary redis swoole imagick pcntl
 
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
