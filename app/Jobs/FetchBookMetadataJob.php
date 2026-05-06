@@ -25,7 +25,7 @@ class FetchBookMetadataJob implements ShouldQueue
     {
         $isbn = $this->book->isbn13;
 
-        Log::info("FetchBookMetadataJob: Fetching metadata for book {$this->book->id} using {$this->provider}");
+        Log::info("FetchBookMetadataJob: Fetching metadata for book {$this->book->id} ({$this->book->title}) using {$this->provider}");
 
         try {
             if ($this->provider === 'open_library') {
@@ -45,7 +45,7 @@ class FetchBookMetadataJob implements ShouldQueue
     protected function withDelay(callable $callback): void
     {
         $delay = rand(5, 15);
-        Log::info("FetchBookMetadataJob: Delaying for {$delay} seconds to avoid rate limiting...");
+        Log::info("FetchBookMetadataJob: Delaying for {$delay} seconds for {$this->provider}...");
         sleep($delay);
         $callback();
     }
@@ -132,11 +132,11 @@ class FetchBookMetadataJob implements ShouldQueue
 
     protected function fetchFromSearxNG(): void
     {
-        $query = "ISBN " . ($this->book->isbn13 ?? ($this->book->title . " " . $this->book->authors_display));
+        $query = ($this->book->isbn13 ? "ISBN " . $this->book->isbn13 : "") . " " . $this->book->title . " " . $this->book->authors_display;
+        $query = trim($query);
         
         Log::info("FetchBookMetadataJob: Searching SearxNG for: {$query}");
 
-        // Using the internal docker service name 'searxng'
         $response = Http::timeout(20)
             ->get("http://searxng:8080/search", [
                 'q' => $query,
@@ -144,18 +144,23 @@ class FetchBookMetadataJob implements ShouldQueue
             ]);
 
         if ($response->failed()) {
-            Log::error("FetchBookMetadataJob: SearxNG search failed for query: {$query}");
+            Log::error("FetchBookMetadataJob: SearxNG search failed (Status: {$response->status()}) for query: {$query}");
             return;
         }
 
         $data = $response->json();
         $results = $data['results'] ?? [];
         
+        Log::info("FetchBookMetadataJob: SearxNG returned " . count($results) . " results");
+
         $combinedText = "";
         foreach ($results as $result) {
             $combinedText .= ($result['title'] ?? '') . " " . ($result['content'] ?? '') . " ";
         }
         
+        // Clean up combined text for easier regex matching
+        $combinedText = str_replace(['-', ' '], '', $combinedText);
+
         // Look for ISBN-13 patterns in search results if book doesn't have one
         if (empty($this->book->isbn13)) {
             if (preg_match('/978[0-9]{10}/', $combinedText, $matches)) {
@@ -163,12 +168,12 @@ class FetchBookMetadataJob implements ShouldQueue
                 Log::info("FetchBookMetadataJob: Discovered ISBN {$foundIsbn} via SearxNG");
                 $this->book->update(['isbn13' => $foundIsbn]);
                 
-                // Now that we have an ISBN, try structured fetching
+                // Now that we have an ISBN, try structured fetching immediately
                 $this->fetchFromOpenLibrary($foundIsbn);
                 return;
             }
         }
 
-        Log::info("FetchBookMetadataJob: No actionable ISBN found in SearxNG results.");
+        Log::info("FetchBookMetadataJob: No actionable ISBN found in SearxNG results snippets.");
     }
 }

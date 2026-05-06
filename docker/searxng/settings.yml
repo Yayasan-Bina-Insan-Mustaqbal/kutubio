@@ -1,0 +1,9 @@
+
+use_default_settings: true
+server:
+    secret_key: "kutubio_secret_key_for_searxng_fixed_12345"
+    base_url: http://searxng:8080
+search:
+    formats:
+        - html
+        - json
