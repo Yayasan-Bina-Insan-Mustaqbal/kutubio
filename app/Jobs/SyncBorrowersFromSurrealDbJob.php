@@ -38,12 +38,18 @@ class SyncBorrowersFromSurrealDbJob implements ShouldQueue
             
             $results = $client->query($surql);
 
-            if (empty($results) || !isset($results[0]['result'])) {
-                Log::warning('SurrealDB sync returned no results or failed.');
+            if (empty($results) || !isset($results[0]['result']) || ($results[0]['status'] ?? '') === 'ERR') {
+                Log::warning('SurrealDB sync returned no results or failed.', ['response' => $results[0] ?? null]);
                 return;
             }
 
             $persons = $results[0]['result'];
+            
+            if (!is_array($persons) && !is_object($persons)) {
+                Log::warning('SurrealDB sync result is not iterable.', ['response' => $results[0] ?? null]);
+                return;
+            }
+
             $count = 0;
 
             foreach ($persons as $person) {
