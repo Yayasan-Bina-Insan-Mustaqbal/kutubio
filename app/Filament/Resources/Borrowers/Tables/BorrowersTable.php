@@ -27,7 +27,13 @@ class BorrowersTable
                     ->searchable()
                     ->sortable(),
                 TextColumn::make('status')
-                    ->badge(),
+                    ->badge()
+                    ->color(fn (string $state): string => match ($state) {
+                        'active' => 'success',
+                        'potential' => 'info',
+                        'inactive' => 'danger',
+                        default => 'gray',
+                    }),
                 TextColumn::make('loans_count')
                     ->counts('loans')
                     ->label('Active Loans'),
@@ -42,6 +48,7 @@ class BorrowersTable
                 SelectFilter::make('status')
                     ->options([
                         'active' => 'Active',
+                        'potential' => 'Potential',
                         'inactive' => 'Inactive',
                     ]),
             ]);

@@ -32,61 +32,128 @@ class SyncBorrowersFromSurrealDbJob implements ShouldQueue
         Log::info('Starting SurrealDB Borrower Sync...');
 
         try {
-            // Query for students, teachers, and staff
-            // We assume a 'person' table where 'type' defines the role
-            $surql = "SELECT *, record::id(id) as sid FROM person WHERE type IN ['student', 'teacher', 'staff'];";
+            $this->syncStudents($client);
+            $this->syncTeachers($client);
+            $this->syncEmployees($client);
             
-            $results = $client->query($surql);
-
-            if (empty($results) || !isset($results[0]['result']) || ($results[0]['status'] ?? '') === 'ERR') {
-                Log::warning('SurrealDB sync returned no results or failed.', ['response' => $results[0] ?? null]);
-                return;
-            }
-
-            $persons = $results[0]['result'];
-            
-            if (!is_array($persons) && !is_object($persons)) {
-                Log::warning('SurrealDB sync result is not iterable.', ['response' => $results[0] ?? null]);
-                return;
-            }
-
-            $count = 0;
-
-            foreach ($persons as $person) {
-                $type = match ($person['type']) {
-                    'student' => BorrowerType::Student,
-                    'teacher' => BorrowerType::Teacher,
-                    'staff' => BorrowerType::Staff,
-                    default => null,
-                };
-
-                if (!$type) {
-                    continue;
-                }
-
-                // Identifier mapping: NIS for students, NIP for others, or fallback to sid
-                $identifier = $person['nis'] ?? $person['nip'] ?? $person['identifier'] ?? $person['sid'];
-
-                Borrower::updateOrCreate(
-                    ['identifier' => $identifier],
-                    [
-                        'name' => $person['name'] ?? $person['full_name'],
-                        'type' => $type,
-                        'class' => $person['class'] ?? null,
-                        'surreal_id' => $person['id'],
-                        'status' => 'active', // Assume active if synced
-                        'notes' => $person['notes'] ?? null,
-                    ]
-                );
-
-                $count++;
-            }
-
-            Log::info("Successfully synced {$count} borrowers from SurrealDB.");
-            
+            Log::info("SurrealDB Borrower Sync completed.");
         } catch (\Exception $e) {
             Log::error('SurrealDB Sync Job Failed: ' . $e->getMessage());
             throw $e;
         }
+    }
+
+    private function syncStudents(SurrealDbClient $client): void
+    {
+        $surql = <<<'SURQL'
+            SELECT 
+                id, 
+                student_code,
+                active_status,
+                <-is_student<-person[0].full_name AS full_name,
+                ->has_enrollment->enrollment[0]->in_class->class_group[0].class_name AS class_name
+            FROM student;
+        SURQL;
+
+        $results = $client->query($surql);
+        $students = $results[0]['result'] ?? [];
+
+        if (!is_array($students)) {
+            Log::warning('SurrealDB student sync result is not iterable.');
+            return;
+        }
+
+        $count = 0;
+        foreach ($students as $data) {
+            $status = match ($data['active_status'] ?? 'active') {
+                'active' => 'active',
+                'attendance_only' => 'potential',
+                default => 'inactive',
+            };
+
+            Borrower::updateOrCreate(
+                ['surreal_id' => $data['id']],
+                [
+                    'name' => $data['full_name'] ?? 'Unknown Student',
+                    'type' => BorrowerType::Student,
+                    'identifier' => $data['student_code'] ?? $data['id'],
+                    'class' => $data['class_name'] ?? null,
+                    'status' => $status,
+                ]
+            );
+            $count++;
+        }
+
+        Log::info("Synced {$count} students from SurrealDB.");
+    }
+
+    private function syncTeachers(SurrealDbClient $client): void
+    {
+        $surql = <<<'SURQL'
+            SELECT 
+                id, 
+                teacher_code,
+                <-is_teacher<-person[0].full_name AS full_name 
+            FROM teacher;
+        SURQL;
+
+        $results = $client->query($surql);
+        $teachers = $results[0]['result'] ?? [];
+
+        if (!is_array($teachers)) {
+            Log::warning('SurrealDB teacher sync result is not iterable.');
+            return;
+        }
+
+        $count = 0;
+        foreach ($teachers as $data) {
+            Borrower::updateOrCreate(
+                ['surreal_id' => $data['id']],
+                [
+                    'name' => $data['full_name'] ?? 'Unknown Teacher',
+                    'type' => BorrowerType::Teacher,
+                    'identifier' => $data['teacher_code'] ?? $data['id'],
+                    'status' => 'active',
+                ]
+            );
+            $count++;
+        }
+
+        Log::info("Synced {$count} teachers from SurrealDB.");
+    }
+
+    private function syncEmployees(SurrealDbClient $client): void
+    {
+        $surql = <<<'SURQL'
+            SELECT 
+                id, 
+                employee_code,
+                <-is_employee<-person[0].full_name AS full_name 
+            FROM employee;
+        SURQL;
+
+        $results = $client->query($surql);
+        $employees = $results[0]['result'] ?? [];
+
+        if (!is_array($employees)) {
+            Log::warning('SurrealDB employee sync result is not iterable.');
+            return;
+        }
+
+        $count = 0;
+        foreach ($employees as $data) {
+            Borrower::updateOrCreate(
+                ['surreal_id' => $data['id']],
+                [
+                    'name' => $data['full_name'] ?? 'Unknown Staff',
+                    'type' => BorrowerType::Staff,
+                    'identifier' => $data['employee_code'] ?? $data['id'],
+                    'status' => 'active',
+                ]
+            );
+            $count++;
+        }
+
+        Log::info("Synced {$count} staff from SurrealDB.");
     }
 }

@@ -23,11 +23,11 @@ class CaptureSessionResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedRectangleStack;
 
-    protected static ?string $navigationLabel = 'Capture Book';
+    protected static ?string $navigationLabel = 'Capture Sessions';
 
-    protected static string|UnitEnum|null $navigationGroup = 'Circulation';
+    protected static string|UnitEnum|null $navigationGroup = 'Intake';
 
-    protected static ?int $navigationSort = 1;
+    protected static ?int $navigationSort = 10;
 
     protected static ?string $recordTitleAttribute = 'public_id';
 

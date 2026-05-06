@@ -22,7 +22,7 @@ class SyncBorrowersFromSurrealDb extends Command
      *
      * @var string
      */
-    protected $description = 'Sync students and teachers from SurrealDB as borrowers';
+    protected $description = 'Sync students, teachers, and employees from SurrealDB as borrowers';
 
     /**
      * Execute the console command.
@@ -34,6 +34,7 @@ class SyncBorrowersFromSurrealDb extends Command
         try {
             $this->syncStudents($client);
             $this->syncTeachers($client);
+            $this->syncEmployees($client);
         } catch (\Exception $e) {
             $this->error('Sync failed: ' . $e->getMessage());
             Log::error('SurrealDB Borrower Sync failed', ['error' => $e->getMessage()]);
@@ -52,7 +53,9 @@ class SyncBorrowersFromSurrealDb extends Command
             SELECT 
                 id, 
                 student_code,
-                <-is_student<-person[0].full_name AS full_name 
+                active_status,
+                <-is_student<-person[0].full_name AS full_name,
+                ->has_enrollment->enrollment[0]->in_class->class_group[0].class_name AS class_name
             FROM student;
         SURQL;
 
@@ -61,13 +64,20 @@ class SyncBorrowersFromSurrealDb extends Command
 
         $count = 0;
         foreach ($students as $data) {
+            $status = match ($data['active_status'] ?? 'active') {
+                'active' => 'active',
+                'attendance_only' => 'potential',
+                default => 'inactive',
+            };
+
             Borrower::updateOrCreate(
                 ['surreal_id' => $data['id']],
                 [
                     'name' => $data['full_name'] ?? 'Unknown Student',
                     'type' => BorrowerType::Student,
-                    'identifier' => $data['student_code'],
-                    'status' => 'active',
+                    'identifier' => $data['student_code'] ?? $data['id'],
+                    'class' => $data['class_name'] ?? null,
+                    'status' => $status,
                 ]
             );
             $count++;
@@ -80,7 +90,6 @@ class SyncBorrowersFromSurrealDb extends Command
     {
         $this->info('Syncing teachers...');
         
-        // Teachers query - assuming similar structure based on GRAPH_DATABASE_GUIDE
         $surql = <<<'SURQL'
             SELECT 
                 id, 
@@ -107,5 +116,37 @@ class SyncBorrowersFromSurrealDb extends Command
         }
 
         $this->info("Synced {$count} teachers.");
+    }
+
+    private function syncEmployees(SurrealDbClient $client): void
+    {
+        $this->info('Syncing staff...');
+        
+        $surql = <<<'SURQL'
+            SELECT 
+                id, 
+                employee_code,
+                <-is_employee<-person[0].full_name AS full_name 
+            FROM employee;
+        SURQL;
+
+        $results = $client->query($surql);
+        $employees = $results[0]['result'] ?? [];
+
+        $count = 0;
+        foreach ($employees as $data) {
+            Borrower::updateOrCreate(
+                ['surreal_id' => $data['id']],
+                [
+                    'name' => $data['full_name'] ?? 'Unknown Staff',
+                    'type' => BorrowerType::Staff,
+                    'identifier' => $data['employee_code'] ?? $data['id'],
+                    'status' => 'active',
+                ]
+            );
+            $count++;
+        }
+
+        $this->info("Synced {$count} staff.");
     }
 }
