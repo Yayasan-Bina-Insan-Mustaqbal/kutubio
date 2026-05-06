@@ -41,11 +41,16 @@
                 </div>
             </div>
 
-            <!-- Bottom Information Area (Appears after scan) -->
+            <!-- Bottom Information Area -->
             <div x-show="$wire.bookCopy" x-transition class="p-6 border-t border-gray-100 dark:border-white/5 bg-gray-50/30 dark:bg-gray-800/20">
                 <div class="flex items-start gap-4">
-                    <div class="flex-shrink-0 w-16 h-20 bg-gray-200 dark:bg-gray-700 rounded-lg flex items-center justify-center">
-                        <x-heroicon-o-book-open class="h-8 w-8 text-gray-400" />
+                    <div class="flex-shrink-0 w-16 h-20 bg-gray-200 dark:bg-gray-700 rounded-lg flex items-center justify-center overflow-hidden">
+                        <template x-if="$wire.bookCopy?.book?.front_image">
+                            <img :src="'/storage/' + $wire.bookCopy.book.front_image" class="w-full h-full object-cover">
+                        </template>
+                        <template x-if="!$wire.bookCopy?.book?.front_image">
+                            <x-heroicon-o-book-open class="h-8 w-8 text-gray-400" />
+                        </template>
                     </div>
                     <div class="flex-grow">
                         <div class="flex items-center gap-2 mb-1">
@@ -119,20 +124,6 @@
                     </button>
                 </div>
             </div>
-            
-            <div class="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-gray-900">
-                <h3 class="text-[10px] font-bold uppercase tracking-wider text-gray-500 mb-4">Quick Help</h3>
-                <ul class="space-y-3">
-                    <li class="flex gap-2 text-[11px] text-gray-600 dark:text-gray-400">
-                        <x-heroicon-m-check-circle class="h-4 w-4 text-green-500 flex-shrink-0" />
-                        <span>Available books will show a borrower search.</span>
-                    </li>
-                    <li class="flex gap-2 text-[11px] text-gray-600 dark:text-gray-400">
-                        <x-heroicon-m-arrow-path-rounded-square class="h-4 w-4 text-orange-500 flex-shrink-0" />
-                        <span>Borrowed books will automatically trigger a return.</span>
-                    </li>
-                </ul>
-            </div>
         </aside>
     </div>
 
@@ -145,7 +136,7 @@
     </style>
 
     <script type="module">
-        document.addEventListener('DOMContentLoaded', async () => {
+        (function() {
             const video = document.getElementById('qrVideo');
             const statusDot = document.getElementById('statusDot');
             const statusText = document.getElementById('statusText');
@@ -155,10 +146,11 @@
             let detector = null;
             let scanning = true;
             let currentFacingMode = 'environment';
+            let loopId = null;
 
             window.addEventListener('scanner-reset', () => {
                 scanning = true;
-                requestAnimationFrame(scanFrame);
+                if (!loopId) loopId = requestAnimationFrame(scanFrame);
             });
 
             async function initDetector() {
@@ -166,13 +158,14 @@
                     const check = () => window.BarcodeDetector ? true : false;
                     
                     if (!check()) {
+                        // Wait for polyfill
                         await new Promise(resolve => {
                             const interval = setInterval(() => {
                                 if (check()) {
                                     clearInterval(interval);
                                     resolve();
                                 }
-                            }, 100);
+                            }, 50);
                         });
                     }
                     
@@ -204,11 +197,14 @@
                     video.srcObject = stream;
                     currentFacingMode = facingMode;
                     
-                    statusDot.classList.replace('bg-yellow-500', 'bg-green-500');
-                    statusDot.classList.add('shadow-[0_0_10px_rgba(34,197,94,0.5)]');
-                    statusText.textContent = 'Scanner Active';
-                    
-                    scanFrame();
+                    video.onloadedmetadata = () => {
+                        statusDot.classList.replace('bg-yellow-500', 'bg-green-500');
+                        statusDot.classList.add('shadow-[0_0_10px_rgba(34,197,94,0.5)]');
+                        statusText.textContent = 'Scanner Active';
+                        scanning = true;
+                        if (loopId) cancelAnimationFrame(loopId);
+                        loopId = requestAnimationFrame(scanFrame);
+                    };
                 } catch (err) {
                     statusDot.classList.replace('bg-yellow-500', 'bg-red-500');
                     statusText.textContent = 'Camera Error';
@@ -217,20 +213,28 @@
 
             async function scanFrame() {
                 if (!scanning || !detector || video.readyState !== video.HAVE_ENOUGH_DATA) {
-                    if (scanning) requestAnimationFrame(scanFrame);
+                    loopId = requestAnimationFrame(scanFrame);
                     return;
                 }
 
                 try {
                     const barcodes = await detector.detect(video);
                     if (barcodes.length > 0) {
-                        Livewire.dispatch('qr-scanned', { value: barcodes[0].rawValue });
+                        const value = barcodes[0].rawValue;
+                        console.log('QR Scanned:', value);
+                        
+                        // Feedback
+                        statusDot.classList.add('scale-150');
+                        setTimeout(() => statusDot.classList.remove('scale-150'), 200);
+
+                        @this.handleQrScanned(value);
                         scanning = false; // Pause while processing
+                        loopId = null;
                         return;
                     }
                 } catch (e) {}
 
-                if (scanning) requestAnimationFrame(scanFrame);
+                loopId = requestAnimationFrame(scanFrame);
             }
 
             switchBtn.addEventListener('click', () => {
@@ -238,12 +242,22 @@
                 startCamera(currentFacingMode);
             });
 
-            if (await initDetector()) {
-                startCamera();
-            } else {
-                statusText.textContent = 'Unsupported Browser';
-                statusDot.classList.replace('bg-yellow-500', 'bg-red-500');
-            }
-        });
+            const init = async () => {
+                if (await initDetector()) {
+                    startCamera(currentFacingMode);
+                } else {
+                    statusText.textContent = 'Unsupported Browser';
+                    statusDot.classList.replace('bg-yellow-500', 'bg-red-500');
+                }
+            };
+
+            init();
+
+            document.addEventListener('livewire:navigating', () => {
+                scanning = false;
+                if (loopId) cancelAnimationFrame(loopId);
+                if (stream) stream.getTracks().forEach(track => track.stop());
+            });
+        })();
     </script>
 </x-filament-panels::page>
