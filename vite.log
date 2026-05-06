@@ -11,3 +11,13 @@
   LARAVEL v13.6.0  plugin v3.0.1
 
   ➜  APP_URL: https://dockerdev.tail0faa6b.ts.net
+4:57:34 AM [vite] .env changed, restarting server...
+4:57:34 AM [vite] server restarted.
+
+  LARAVEL v13.6.0  plugin v3.0.1
+
+  ➜  APP_URL: https://dockerdev.tail0faa6b.ts.net
+5:04:30 AM [vite] full reload resources/views/print/book-card.blade.php
+5:25:05 AM [vite] full reload resources/views/filament/pages/scan-book.blade.php
+5:54:07 AM [vite] full reload resources/views/filament/pages/scan-book.blade.php
+5:54:48 AM [vite] full reload resources/views/filament/pages/scan-book.blade.php
