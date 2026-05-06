@@ -6,6 +6,7 @@ use Filament\Infolists\Components\IconEntry;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
+use Illuminate\Support\HtmlString;
 
 class PrintProfileInfolist
 {
@@ -13,6 +14,21 @@ class PrintProfileInfolist
     {
         return $schema
             ->components([
+                Section::make('Measurement Guidance')
+                    ->collapsible()
+                    ->schema([
+                        TextEntry::make('guidance_image')
+                            ->hiddenLabel()
+                            ->default(new HtmlString('
+                                <div class="flex justify-center p-4 bg-gray-50 rounded-lg border border-gray-200">
+                                    <img src="' . asset('images/guide/Print Profile.png') . '" 
+                                         alt="Print Profile Guidance" 
+                                         class="max-w-full h-auto shadow-sm rounded">
+                                </div>
+                            '))
+                            ->html(),
+                    ]),
+
                 Section::make('Print profile')
                     ->schema([
                         TextEntry::make('name'),

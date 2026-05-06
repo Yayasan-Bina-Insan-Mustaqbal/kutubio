@@ -66,6 +66,7 @@ class JobResource extends Resource
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->defaultSort('created_at', 'desc')
+            ->poll('5s')
             ->filters([
                 SelectFilter::make('status')
                     ->options(JobLogStatus::class),

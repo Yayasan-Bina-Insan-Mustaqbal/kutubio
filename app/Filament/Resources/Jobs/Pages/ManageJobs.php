@@ -11,6 +11,11 @@ class ManageJobs extends ManageRecords
 
     protected function getHeaderActions(): array
     {
-        return [];
+        return [
+            \Filament\Actions\Action::make('refresh')
+                ->label('Refresh Logs')
+                ->icon('heroicon-o-arrow-path')
+                ->action(fn () => null),
+        ];
     }
 }
