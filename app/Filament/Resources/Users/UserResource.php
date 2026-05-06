@@ -21,11 +21,11 @@ class UserResource extends Resource
 {
     protected static ?string $model = User::class;
 
-    protected static ?string $navigationLabel = 'Lenders';
+    protected static ?string $navigationLabel = 'Staff';
 
-    protected static ?string $pluralLabel = 'Lenders';
+    protected static ?string $pluralLabel = 'Staff';
 
-    protected static ?string $modelLabel = 'Lender';
+    protected static ?string $modelLabel = 'Staff';
 
     protected static string|UnitEnum|null $navigationGroup = 'Circulation';
 

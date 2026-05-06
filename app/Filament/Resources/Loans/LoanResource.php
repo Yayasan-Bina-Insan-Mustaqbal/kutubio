@@ -13,8 +13,11 @@ use App\Models\Loan;
 use BackedEnum;
 use Filament\Actions\Action;
 use Filament\Actions\BulkActionGroup;
+use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
+use Filament\Actions\ForceDeleteAction;
+use Filament\Actions\RestoreAction;
 use Filament\Actions\ViewAction;
 use Filament\Forms\Components\DateTimePicker;
 use Filament\Forms\Components\Select;
@@ -24,6 +27,7 @@ use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Filters\TrashedFilter;
 use Filament\Tables\Table;
 use UnitEnum;
 
@@ -106,7 +110,7 @@ class LoanResource extends Resource
                     ->badge(),
             ])
             ->filters([
-                \Filament\Tables\Filters\TrashedFilter::make()
+                TrashedFilter::make()
                     ->visible(fn () => auth()->user()->isAdmin()),
             ])
             ->actions([
@@ -130,35 +134,35 @@ class LoanResource extends Resource
                             ->success()
                             ->send();
                     }),
-                \Filament\Tables\Actions\Action::make('flag_for_deletion')
+                Action::make('flag_for_deletion')
                     ->label('Flag for Deletion')
                     ->icon('heroicon-o-flag')
                     ->color('danger')
                     ->hidden(fn () => auth()->user()->isAdmin())
                     ->form([
-                        \Filament\Forms\Components\Textarea::make('deletion_reason')
+                        Textarea::make('deletion_reason')
                             ->label('Reason for deletion')
                             ->required(),
                     ])
                     ->action(function (Loan $record, array $data) {
                         $record->update(['deletion_reason' => $data['deletion_reason']]);
                         $record->delete();
-                        
-                        \Filament\Notifications\Notification::make()
+
+                        Notification::make()
                             ->title('Loan record flagged for deletion')
                             ->success()
                             ->send();
                     }),
 
-                \Filament\Tables\Actions\DeleteAction::make()
+                DeleteAction::make()
                     ->visible(fn () => auth()->user()->isAdmin()),
-                
-                \Filament\Tables\Actions\RestoreAction::make()
+
+                RestoreAction::make()
                     ->visible(fn () => auth()->user()->isAdmin()),
-                
-                \Filament\Tables\Actions\ForceDeleteAction::make()
+
+                ForceDeleteAction::make()
                     ->visible(fn () => auth()->user()->isAdmin()),
-                
+
                 ViewAction::make(),
                 EditAction::make(),
             ])

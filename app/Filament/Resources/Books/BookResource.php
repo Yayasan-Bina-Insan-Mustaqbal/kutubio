@@ -14,6 +14,10 @@ use App\Services\PrintService;
 use BackedEnum;
 use Filament\Actions\Action;
 use Filament\Actions\BulkAction;
+use Filament\Actions\DeleteAction;
+use Filament\Actions\ForceDeleteAction;
+use Filament\Actions\RestoreAction;
+use Filament\Forms\Components\Textarea;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
@@ -65,34 +69,34 @@ class BookResource extends Resource
                             URL::signedRoute('download.temp', ['filename' => $filename, 'name' => $originalName])
                         );
                     }),
-                
-                \Filament\Tables\Actions\Action::make('flag_for_deletion')
+
+                Action::make('flag_for_deletion')
                     ->label('Flag for Deletion')
                     ->icon('heroicon-o-flag')
                     ->color('danger')
                     ->hidden(fn () => auth()->user()->isAdmin())
                     ->form([
-                        \Filament\Forms\Components\Textarea::make('deletion_reason')
+                        Textarea::make('deletion_reason')
                             ->label('Reason for deletion')
                             ->required(),
                     ])
                     ->action(function (Book $record, array $data) {
                         $record->update(['deletion_reason' => $data['deletion_reason']]);
                         $record->delete();
-                        
-                        \Filament\Notifications\Notification::make()
+
+                        Notification::make()
                             ->title('Book flagged for deletion')
                             ->success()
                             ->send();
                     }),
 
-                \Filament\Tables\Actions\DeleteAction::make()
+                DeleteAction::make()
                     ->visible(fn () => auth()->user()->isAdmin()),
-                
-                \Filament\Tables\Actions\RestoreAction::make()
+
+                RestoreAction::make()
                     ->visible(fn () => auth()->user()->isAdmin()),
-                
-                \Filament\Tables\Actions\ForceDeleteAction::make()
+
+                ForceDeleteAction::make()
                     ->visible(fn () => auth()->user()->isAdmin()),
             ])
             ->bulkActions([
