@@ -10,11 +10,11 @@ use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\ViewAction;
-use Filament\Notifications\Notification;
-use Filament\Resources\Resource;
-use Filament\Tables\Columns\TextColumn;
-use Filament\Tables\Filters\SelectFilter;
-use Filament\Tables\Table;
+use Filament\Infolists\Components\Section;
+use Filament\Infolists\Components\TextEntry;
+use Filament\Infolists\Components\Grid;
+use Filament\Infolists\Infolist;
+use Filament\Schemas\Schema;
 use Illuminate\Support\Facades\Artisan;
 use UnitEnum;
 
@@ -27,6 +27,67 @@ class JobResource extends Resource
     protected static string|UnitEnum|null $navigationGroup = 'System';
 
     protected static ?int $navigationSort = 100;
+
+    public static function infolist(Infolist $infolist): Infolist
+    {
+        return $infolist
+            ->schema([
+                Section::make('Job Information')
+                    ->schema([
+                        Grid::make(3)
+                            ->schema([
+                                TextEntry::make('display_name')
+                                    ->label('Job Name'),
+                                TextEntry::make('status')
+                                    ->badge(),
+                                TextEntry::make('queue')
+                                    ->badge(),
+                                TextEntry::make('job_uuid')
+                                    ->label('UUID')
+                                    ->fontFamily('mono')
+                                    ->copyable(),
+                                TextEntry::make('attempts'),
+                                TextEntry::make('connection'),
+                            ]),
+                    ]),
+
+                Section::make('Timestamps')
+                    ->schema([
+                        Grid::make(3)
+                            ->schema([
+                                TextEntry::make('queued_at')
+                                    ->dateTime(),
+                                TextEntry::make('started_at')
+                                    ->dateTime()
+                                    ->placeholder('Not started'),
+                                TextEntry::make('finished_at')
+                                    ->dateTime()
+                                    ->placeholder('Not finished'),
+                            ]),
+                    ]),
+
+                Section::make('Exception')
+                    ->schema([
+                        TextEntry::make('exception')
+                            ->label('')
+                            ->prose()
+                            ->markdown()
+                            ->fontFamily('mono')
+                            ->wrap(),
+                    ])
+                    ->visible(fn (JobLog $record): bool => ! empty($record->exception))
+                    ->collapsible(),
+
+                Section::make('Payload')
+                    ->schema([
+                        TextEntry::make('payload')
+                            ->label('')
+                            ->json(),
+                    ])
+                    ->collapsible()
+                    ->collapsed(),
+            ]);
+    }
 
     public static function table(Table $table): Table
     {

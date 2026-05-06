@@ -25,26 +25,29 @@ class FetchBookMetadataJob implements ShouldQueue
     {
         $isbn = $this->book->isbn13;
 
-        if (empty($isbn)) {
-            Log::info("FetchBookMetadataJob: No ISBN for book {$this->book->id}");
-            return;
-        }
-
-        Log::info("FetchBookMetadataJob: Fetching metadata for ISBN {$isbn} using {$this->provider}");
+        Log::info("FetchBookMetadataJob: Fetching metadata for book {$this->book->id} using {$this->provider}");
 
         try {
             if ($this->provider === 'open_library') {
+                if (!$isbn) return;
                 $this->fetchFromOpenLibrary($isbn);
             } elseif ($this->provider === 'isbn_search') {
-                // Random delay to avoid blocking
-                $delay = rand(5, 15);
-                Log::info("FetchBookMetadataJob: Delaying for {$delay} seconds for ISBN Search...");
-                sleep($delay);
-                $this->fetchFromIsbnSearch($isbn);
+                if (!$isbn) return;
+                $this->withDelay(fn() => $this->fetchFromIsbnSearch($isbn));
+            } elseif ($this->provider === 'duckduckgo') {
+                $this->withDelay(fn() => $this->fetchFromDuckDuckGo());
             }
         } catch (\Exception $e) {
-            Log::error("FetchBookMetadataJob: Error fetching metadata for ISBN {$isbn}: " . $e->getMessage());
+            Log::error("FetchBookMetadataJob: Error fetching metadata for book {$this->book->id}: " . $e->getMessage());
         }
+    }
+
+    protected function withDelay(callable $callback): void
+    {
+        $delay = rand(5, 15);
+        Log::info("FetchBookMetadataJob: Delaying for {$delay} seconds to avoid rate limiting...");
+        sleep($delay);
+        $callback();
     }
 
     protected function fetchFromOpenLibrary(string $isbn): void
@@ -109,7 +112,6 @@ class FetchBookMetadataJob implements ShouldQueue
         $html = $response->body();
         $updates = [];
 
-        // Simple Regex Scraping
         if (empty($this->book->title) && preg_match('/<h1>(.*?)<\/h1>/s', $html, $matches)) {
             $updates['title'] = trim($matches[1]);
         }
@@ -122,14 +124,42 @@ class FetchBookMetadataJob implements ShouldQueue
             $updates['publisher'] = trim($matches[1]);
         }
 
-        // ISBN Search doesn't usually show page count in the simple view but it shows "Published"
-        // We can use it to help verify or fill other fields if we had them.
-
         if (!empty($updates)) {
             $this->book->update($updates);
             Log::info("FetchBookMetadataJob: Updated book {$this->book->id} with metadata from ISBN Search");
-        } else {
-            Log::warning("FetchBookMetadataJob: No updates found on ISBN Search for ISBN {$isbn}");
         }
+    }
+
+    protected function fetchFromDuckDuckGo(): void
+    {
+        $query = "ISBN " . ($this->book->isbn13 ?? ($this->book->title . " " . $this->book->authors_display));
+        
+        Log::info("FetchBookMetadataJob: Searching DuckDuckGo for: {$query}");
+
+        $response = Http::timeout(15)
+            ->withUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36')
+            ->get("https://duckduckgo.com/html/?q=" . urlencode($query));
+
+        if ($response->failed()) {
+            Log::error("FetchBookMetadataJob: DuckDuckGo search failed for query: {$query}");
+            return;
+        }
+
+        $html = $response->body();
+        
+        // Look for ISBN-13 patterns in search results if book doesn't have one
+        if (empty($this->book->isbn13)) {
+            if (preg_match('/978[0-9]{10}/', $html, $matches)) {
+                $foundIsbn = $matches[0];
+                Log::info("FetchBookMetadataJob: Discovered ISBN {$foundIsbn} via DuckDuckGo");
+                $this->book->update(['isbn13' => $foundIsbn]);
+                
+                // Now that we have an ISBN, try structured fetching
+                $this->fetchFromOpenLibrary($foundIsbn);
+                return;
+            }
+        }
+
+        Log::info("FetchBookMetadataJob: No actionable ISBN found in DuckDuckGo results.");
     }
 }

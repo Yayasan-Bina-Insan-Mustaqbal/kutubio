@@ -72,12 +72,13 @@ class BookResource extends Resource
                             ->options([
                                 'open_library' => 'Open Library (ISBN)',
                                 'isbn_search' => 'ISBN Search (HTML Scraper)',
+                                'duckduckgo' => 'DuckDuckGo (Search by Title/Author)',
                             ])
                             ->default('open_library')
                             ->required(),
                     ])
                     ->action(function (Book $record, array $data) {
-                        if (empty($record->isbn13)) {
+                        if ($data['provider'] !== 'duckduckgo' && empty($record->isbn13)) {
                             Notification::make()
                                 ->title('Metadata Acquisition Failed')
                                 ->body('Book has no ISBN-13.')
@@ -132,6 +133,7 @@ class BookResource extends Resource
                                 ->options([
                                     'open_library' => 'Open Library (ISBN)',
                                     'isbn_search' => 'ISBN Search (HTML Scraper)',
+                                    'duckduckgo' => 'DuckDuckGo (Search by Title/Author)',
                                 ])
                                 ->default('open_library')
                                 ->required(),
@@ -139,7 +141,7 @@ class BookResource extends Resource
                         ->action(function (Collection $records, array $data) {
                             $count = 0;
                             foreach ($records as $record) {
-                                if (!empty($record->isbn13)) {
+                                if ($data['provider'] === 'duckduckgo' || !empty($record->isbn13)) {
                                     FetchBookMetadataJob::dispatch($record, $data['provider']);
                                     $count++;
                                 }
