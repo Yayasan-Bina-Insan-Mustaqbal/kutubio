@@ -23,6 +23,12 @@ class Book extends Model
         static::creating(function (Book $book): void {
             $book->public_id ??= (string) Str::ulid();
         });
+
+        static::created(function (Book $book): void {
+            if ($book->isbn13) {
+                \App\Jobs\FetchBookMetadataJob::dispatch($book);
+            }
+        });
     }
 
     /**

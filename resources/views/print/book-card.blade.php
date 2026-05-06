@@ -117,7 +117,7 @@
                             </tr>
                         </thead>
                         <tbody>
-                            @for ($i = 0; $i < 10; $i++)
+                            @for ($i = 0; $i < 9; $i++)
                                 <tr>
                                     <td>&nbsp;</td>
                                     <td>&nbsp;</td>
