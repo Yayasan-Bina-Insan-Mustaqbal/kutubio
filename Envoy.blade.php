@@ -27,19 +27,13 @@
         sed -i 's/REDIS_HOST=127.0.0.1/REDIS_HOST=redis/g' .env
     fi
 
-    # Bootstrap vendor directory so Sail build context is available
-    if [ ! -d vendor ]; then
-        docker run --rm \
-            -v $(pwd):/app \
-            composer install --ignore-platform-reqs --no-interaction --no-scripts
-    fi
-
     # Build and start containers
+    # WWWUSER and WWWGROUP are needed for Sail's build process
     export WWWUSER=$(id -u)
     export WWWGROUP=$(id -g)
     docker compose up -d --build
     
-    # Final production tasks
+    # Run production tasks inside the built container
     docker compose exec -T laravel.test composer install --no-interaction --prefer-dist --optimize-autoloader
     docker compose exec -T laravel.test php artisan key:generate --force
     docker compose exec -T laravel.test php artisan migrate --force
