@@ -8,9 +8,11 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Str;
 
+use Illuminate\Database\Eloquent\SoftDeletes;
+
 class Loan extends Model
 {
-    use HasFactory;
+    use HasFactory, SoftDeletes;
 
     protected $fillable = [
         'book_copy_id',
@@ -20,6 +22,7 @@ class Loan extends Model
         'returned_at',
         'status',
         'notes',
+        'deletion_reason',
     ];
 
     protected static function booted(): void

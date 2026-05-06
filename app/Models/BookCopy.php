@@ -10,11 +10,13 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Str;
 
-#[Fillable(['book_id', 'tracking_code', 'qr_payload', 'status', 'location_note', 'acquired_at'])]
+use Illuminate\Database\Eloquent\SoftDeletes;
+
+#[Fillable(['book_id', 'tracking_code', 'qr_payload', 'status', 'location_note', 'acquired_at', 'deletion_reason'])]
 class BookCopy extends Model
 {
     /** @use HasFactory<BookCopyFactory> */
-    use HasFactory;
+    use HasFactory, SoftDeletes;
 
     protected $attributes = [
         'status' => BookCopyStatus::Draft->value,

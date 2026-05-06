@@ -10,11 +10,13 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Str;
 
-#[Fillable(['title', 'subtitle', 'authors_display', 'isbn13', 'publisher', 'page_count', 'synopsis', 'category_id', 'approved_metadata_revision_id'])]
+use Illuminate\Database\Eloquent\SoftDeletes;
+
+#[Fillable(['title', 'subtitle', 'authors_display', 'isbn13', 'publisher', 'page_count', 'synopsis', 'category_id', 'approved_metadata_revision_id', 'deletion_reason'])]
 class Book extends Model
 {
     /** @use HasFactory<BookFactory> */
-    use HasFactory;
+    use HasFactory, SoftDeletes;
 
     protected static function booted(): void
     {
