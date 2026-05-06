@@ -44,6 +44,8 @@ class BookCopiesTable
             ->filters([
                 SelectFilter::make('status')
                     ->options(BookCopyStatus::class),
+                \Filament\Tables\Filters\TrashedFilter::make()
+                    ->visible(fn () => auth()->user()->isAdmin()),
             ])
             ->recordActions([
                 ViewAction::make(),

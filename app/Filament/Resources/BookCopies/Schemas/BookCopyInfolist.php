@@ -32,6 +32,16 @@ class BookCopyInfolist
                             ->columnSpanFull(),
                     ])
                     ->columns(2),
+
+                Section::make('Deletion Information')
+                    ->visible(fn ($record) => $record?->trashed())
+                    ->schema([
+                        TextEntry::make('deletion_reason')
+                            ->label('Reason for deletion')
+                            ->columnSpanFull()
+                            ->color('danger')
+                            ->weight('bold'),
+                    ]),
             ]);
     }
 }

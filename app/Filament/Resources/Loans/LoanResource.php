@@ -106,7 +106,8 @@ class LoanResource extends Resource
                     ->badge(),
             ])
             ->filters([
-                //
+                \Filament\Tables\Filters\TrashedFilter::make()
+                    ->visible(fn () => auth()->user()->isAdmin()),
             ])
             ->actions([
                 Action::make('return')
@@ -129,6 +130,35 @@ class LoanResource extends Resource
                             ->success()
                             ->send();
                     }),
+                \Filament\Tables\Actions\Action::make('flag_for_deletion')
+                    ->label('Flag for Deletion')
+                    ->icon('heroicon-o-flag')
+                    ->color('danger')
+                    ->hidden(fn () => auth()->user()->isAdmin())
+                    ->form([
+                        \Filament\Forms\Components\Textarea::make('deletion_reason')
+                            ->label('Reason for deletion')
+                            ->required(),
+                    ])
+                    ->action(function (Loan $record, array $data) {
+                        $record->update(['deletion_reason' => $data['deletion_reason']]);
+                        $record->delete();
+                        
+                        \Filament\Notifications\Notification::make()
+                            ->title('Loan record flagged for deletion')
+                            ->success()
+                            ->send();
+                    }),
+
+                \Filament\Tables\Actions\DeleteAction::make()
+                    ->visible(fn () => auth()->user()->isAdmin()),
+                
+                \Filament\Tables\Actions\RestoreAction::make()
+                    ->visible(fn () => auth()->user()->isAdmin()),
+                
+                \Filament\Tables\Actions\ForceDeleteAction::make()
+                    ->visible(fn () => auth()->user()->isAdmin()),
+                
                 ViewAction::make(),
                 EditAction::make(),
             ])

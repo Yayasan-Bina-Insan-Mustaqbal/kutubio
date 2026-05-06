@@ -51,6 +51,8 @@ class BooksTable
                     ->relationship('category', 'label')
                     ->searchable()
                     ->preload(),
+                \Filament\Tables\Filters\TrashedFilter::make()
+                    ->visible(fn () => auth()->user()->isAdmin()),
             ])
             ->recordActions([
                 ViewAction::make(),
