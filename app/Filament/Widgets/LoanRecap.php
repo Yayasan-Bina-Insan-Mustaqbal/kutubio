@@ -8,7 +8,8 @@ use Filament\Tables;
 use Filament\Tables\Table;
 use Filament\Widgets\TableWidget;
 use Illuminate\Database\Eloquent\Builder;
-use Filament\Tables\Actions\BulkAction;
+use Filament\Actions\Action;
+use Filament\Actions\BulkAction;
 use Illuminate\Support\Collection;
 use Filament\Notifications\Notification;
 use Illuminate\Contracts\View\View;
@@ -58,7 +59,7 @@ class LoanRecap extends TableWidget
                     ->query(fn (Builder $query): Builder => $query->where('due_at', '<', now())),
             ])
             ->actions([
-                Tables\Actions\Action::make('copyReminder')
+                Action::make('copyReminder')
                     ->label('Copy')
                     ->icon('heroicon-m-clipboard')
                     ->color('success')
@@ -73,7 +74,6 @@ class LoanRecap extends TableWidget
                             });
                         ",
                     ])
-                    // We'll use a dynamic reminder text
                     ->evaluate(fn (Loan $record) => [
                         'data-reminder' => "Assalamu'alaikum, mengingatkan kepada {$record->borrower->name} " . 
                                            ($record->borrower->class ? "({$record->borrower->class}) " : "") . 
@@ -93,8 +93,6 @@ class LoanRecap extends TableWidget
                             $text .= "- {$record->borrower->name} (" . ($record->borrower->class ?? '-') . "): {$record->bookCopy->book->title} [{$status}: {$record->due_at->format('d M Y')}]\n";
                         }
                         
-                        // Note: Browsers block clipboard access from PHP context. 
-                        // This will be handled by a frontend script in the next step.
                         $this->dispatch('copy-to-clipboard', text: $text);
                     }),
             ]);
