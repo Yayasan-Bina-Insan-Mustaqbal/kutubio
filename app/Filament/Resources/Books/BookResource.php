@@ -10,13 +10,18 @@ use App\Filament\Resources\Books\Schemas\BookForm;
 use App\Filament\Resources\Books\Schemas\BookInfolist;
 use App\Filament\Resources\Books\Tables\BooksTable;
 use App\Models\Book;
-use App\Services\PrintService;
+use App\Jobs\FetchBookMetadataJob;
 use BackedEnum;
 use Filament\Actions\Action;
 use Filament\Actions\BulkAction;
+use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteAction;
+use Filament\Actions\DeleteBulkAction;
+use Filament\Actions\EditAction;
 use Filament\Actions\ForceDeleteAction;
 use Filament\Actions\RestoreAction;
+use Filament\Actions\ViewAction;
+use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
@@ -25,9 +30,6 @@ use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Facades\URL;
-use Illuminate\Support\Str;
 use UnitEnum;
 
 class BookResource extends Resource
@@ -56,6 +58,42 @@ class BookResource extends Resource
     {
         return BooksTable::configure($table)
             ->actions([
+                ViewAction::make()->iconButton(),
+                EditAction::make()->iconButton(),
+                
+                Action::make('acquireMetadata')
+                    ->label('Acquire Metadata')
+                    ->icon('heroicon-m-sparkles')
+                    ->iconButton()
+                    ->color('primary')
+                    ->form([
+                        Select::make('provider')
+                            ->label('Metadata Provider')
+                            ->options([
+                                'open_library' => 'Open Library (ISBN)',
+                                'isbn_search' => 'ISBN Search (HTML Scraper)',
+                            ])
+                            ->default('open_library')
+                            ->required(),
+                    ])
+                    ->action(function (Book $record, array $data) {
+                        if (empty($record->isbn13)) {
+                            Notification::make()
+                                ->title('Metadata Acquisition Failed')
+                                ->body('Book has no ISBN-13.')
+                                ->danger()
+                                ->send();
+                            return;
+                        }
+
+                        FetchBookMetadataJob::dispatch($record, $data['provider']);
+
+                        Notification::make()
+                            ->title('Metadata acquisition queued')
+                            ->success()
+                            ->send();
+                    }),
+
                 Action::make('flag_for_deletion')
                     ->label('Flag for Deletion')
                     ->icon('heroicon-o-flag')
@@ -82,7 +120,37 @@ class BookResource extends Resource
                 ForceDeleteAction::make()->iconButton()->hidden(),
             ])
             ->bulkActions([
-                //
+                BulkActionGroup::make([
+                    DeleteBulkAction::make(),
+                    
+                    BulkAction::make('acquireMetadataBulk')
+                        ->label('Acquire Metadata')
+                        ->icon('heroicon-m-sparkles')
+                        ->form([
+                            Select::make('provider')
+                                ->label('Metadata Provider')
+                                ->options([
+                                    'open_library' => 'Open Library (ISBN)',
+                                    'isbn_search' => 'ISBN Search (HTML Scraper)',
+                                ])
+                                ->default('open_library')
+                                ->required(),
+                        ])
+                        ->action(function (Collection $records, array $data) {
+                            $count = 0;
+                            foreach ($records as $record) {
+                                if (!empty($record->isbn13)) {
+                                    FetchBookMetadataJob::dispatch($record, $data['provider']);
+                                    $count++;
+                                }
+                            }
+
+                            Notification::make()
+                                ->title("Queued metadata acquisition for {$count} books")
+                                ->success()
+                                ->send();
+                        }),
+                ]),
             ]);
     }
 
