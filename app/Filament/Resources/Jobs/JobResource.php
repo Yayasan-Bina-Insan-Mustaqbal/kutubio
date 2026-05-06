@@ -15,7 +15,6 @@ use Filament\Resources\Resource;
 use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Section;
 use Filament\Infolists\Components\TextEntry;
-use Filament\Infolists\Components\CodeEntry;
 use Filament\Schemas\Schema;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
@@ -75,18 +74,17 @@ class JobResource extends Resource
                     ->schema([
                         TextEntry::make('exception')
                             ->label('')
-                            ->markdown()
-                            ->fontFamily('mono')
-                            ->wrap(),
+                            ->fontFamily('mono'),
                     ])
                     ->visible(fn (JobLog $record): bool => ! empty($record->exception))
                     ->collapsible(),
 
                 Section::make('Payload')
                     ->schema([
-                        CodeEntry::make('payload')
+                        TextEntry::make('payload')
                             ->label('')
-                            ->language('json'),
+                            ->formatStateUsing(fn ($state) => json_encode($state, JSON_PRETTY_PRINT))
+                            ->fontFamily('mono'),
                     ])
                     ->collapsible()
                     ->collapsed(),
