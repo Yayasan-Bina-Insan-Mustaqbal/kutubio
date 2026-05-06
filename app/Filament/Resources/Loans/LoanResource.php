@@ -57,7 +57,6 @@ class LoanResource extends Resource
                     ->searchable()
                     ->preload()
                     ->required()
-                    ->disableOptionsWhenSelectedInRedundantRelationships()
                     // Only show available copies when creating
                     ->options(function (string $context) {
                         if ($context === 'create') {

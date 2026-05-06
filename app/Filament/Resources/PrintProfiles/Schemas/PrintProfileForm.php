@@ -2,10 +2,12 @@
 
 namespace App\Filament\Resources\PrintProfiles\Schemas;
 
+use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
+use Illuminate\Support\HtmlString;
 
 class PrintProfileForm
 {
@@ -13,10 +15,26 @@ class PrintProfileForm
     {
         return $schema
             ->components([
+                Section::make('Measurement Guidance')
+                    ->collapsible()
+                    ->schema([
+                        Placeholder::make('guidance_image')
+                            ->hiddenLabel()
+                            ->content(new HtmlString('
+                                <div class="flex justify-center p-4 bg-gray-50 rounded-lg border border-gray-200">
+                                    <img src="' . asset('images/guide/Print Profile.png') . '" 
+                                         alt="Print Profile Guidance" 
+                                         class="max-w-full h-auto shadow-sm rounded">
+                                </div>
+                                <p class="mt-2 text-sm text-gray-500">Use this diagram to measure your sticker sheet dimensions in millimeters (mm).</p>
+                            ')),
+                    ]),
+
                 Section::make('Sheet layout')
                     ->schema([
                         TextInput::make('name')
-                            ->required()
+...
+
                             ->maxLength(255)
                             ->unique(ignoreRecord: true),
                         Toggle::make('is_default'),
