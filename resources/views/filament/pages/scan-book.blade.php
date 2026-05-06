@@ -1,12 +1,15 @@
 <x-filament-panels::page>
     @vite(['resources/js/app.js'])
     
-    <div class="grid gap-4 lg:grid-cols-[minmax(0,1.35fr)_minmax(320px,0.65fr)]">
+    <div x-data="{ scanning: true }" 
+         x-on:scanner-reset.window="scanning = true; console.log('Alpine: Scanner Reset');"
+         x-on:scanner-captured.window="scanning = false; console.log('Alpine: Scanner Captured');"
+         class="grid gap-4 lg:grid-cols-[minmax(0,1.35fr)_minmax(320px,0.65fr)]">
+        
         <!-- Scanner Viewport -->
         <section class="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-white/10 dark:bg-gray-900">
             <div class="relative aspect-video w-full bg-black overflow-hidden">
                 <video id="qrVideo" autoplay playsinline muted class="h-full w-full object-cover"></video>
-                <canvas id="qrCanvas" class="hidden"></canvas>
                 
                 <!-- Scanner Overlay -->
                 <div class="absolute inset-0 pointer-events-none flex items-center justify-center">
@@ -18,7 +21,7 @@
                         <div class="absolute -bottom-1 -right-1 w-6 h-6 border-b-4 border-r-4 border-primary-500"></div>
                         
                         <!-- Scanning Line Animation -->
-                        <div class="absolute inset-x-0 top-0 h-0.5 bg-primary-500 shadow-[0_0_8px_rgba(var(--primary-500),0.8)] animate-[scan_2s_linear_infinite]"></div>
+                        <div x-show="scanning" class="absolute inset-x-0 top-0 h-0.5 bg-primary-500 shadow-[0_0_8px_rgba(var(--primary-500),0.8)] animate-[scan_2s_linear_infinite]"></div>
                     </div>
                 </div>
 
@@ -30,7 +33,7 @@
                             <span id="statusText" class="text-[10px] font-bold text-white uppercase tracking-widest">Initializing...</span>
                         </div>
                         <div class="flex gap-2">
-                            <button type="button" wire:click="resetScanner" class="rounded-full bg-white/10 backdrop-blur-md p-2 text-white hover:bg-white/20 transition-colors border border-white/5" title="Reset Scanner">
+                            <button type="button" wire:click="resetScanner" x-on:click="scanning = true" class="rounded-full bg-white/10 backdrop-blur-md p-2 text-white hover:bg-white/20 transition-colors border border-white/5" title="Reset Scanner">
                                 <x-heroicon-m-arrow-path class="h-5 w-5" />
                             </button>
                             <button type="button" id="switchCameraBtn" class="rounded-full bg-white/10 backdrop-blur-md p-2.5 text-white hover:bg-white/20 transition-colors border border-white/5">
@@ -41,46 +44,52 @@
                 </div>
             </div>
 
-            <!-- Bottom Information Area -->
-            <div x-show="$wire.bookCopy" x-transition class="p-6 border-t border-gray-100 dark:border-white/5 bg-gray-50/30 dark:bg-gray-800/20">
+            <!-- Bottom Information Area (Blade-based presence for reliability) -->
+            @if($bookCopy)
+            <div x-data x-transition class="p-6 border-t border-gray-100 dark:border-white/5 bg-gray-50/30 dark:bg-gray-800/20">
                 <div class="flex items-start gap-4">
                     <div class="flex-shrink-0 w-16 h-20 bg-gray-200 dark:bg-gray-700 rounded-lg flex items-center justify-center overflow-hidden">
-                        <template x-if="$wire.bookCopy?.book?.front_image">
-                            <img :src="'/storage/' + $wire.bookCopy.book.front_image" class="w-full h-full object-cover">
-                        </template>
-                        <template x-if="!$wire.bookCopy?.book?.front_image">
+                        @if($bookCopy->book?->front_image)
+                            <img src="{{ Storage::url($bookCopy->book->front_image) }}" class="w-full h-full object-cover">
+                        @else
                             <x-heroicon-o-book-open class="h-8 w-8 text-gray-400" />
-                        </template>
+                        @endif
                     </div>
                     <div class="flex-grow">
                         <div class="flex items-center gap-2 mb-1">
-                            <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider" 
-                                :class="$wire.processMode === 'return' ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400' : 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'">
-                                <span x-text="$wire.processMode === 'return' ? 'Currently Borrowed' : 'Available for Loan'"></span>
+                            <span @class([
+                                "px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider",
+                                "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400" => $processMode === 'return',
+                                "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400" => $processMode === 'loan',
+                            ])>
+                                {{ $processMode === 'return' ? 'Currently Borrowed' : 'Available for Loan' }}
                             </span>
-                            <span class="text-[10px] font-mono text-gray-500" x-text="$wire.bookCopy?.tracking_code"></span>
+                            <span class="text-[10px] font-mono text-gray-500">{{ $bookCopy->tracking_code }}</span>
                         </div>
-                        <h2 class="text-lg font-bold text-gray-900 dark:text-white leading-tight mb-1" x-text="$wire.bookCopy?.book?.title"></h2>
-                        <p class="text-xs text-gray-500 dark:text-gray-400" x-text="$wire.bookCopy?.book?.authors"></p>
+                        <h2 class="text-lg font-bold text-gray-900 dark:text-white leading-tight mb-1">{{ $bookCopy->book?->title }}</h2>
+                        <p class="text-xs text-gray-500 dark:text-gray-400">{{ $bookCopy->book?->authors }}</p>
                     </div>
                 </div>
             </div>
+            @endif
         </section>
 
         <!-- Sidebar: Circulation Controls -->
         <aside class="space-y-4">
             <div class="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-gray-900">
-                <div x-show="!$wire.bookCopy" class="flex flex-col items-center justify-center py-8 text-center">
+                @if(!$bookCopy)
+                <div class="flex flex-col items-center justify-center py-8 text-center">
                     <div class="w-16 h-16 bg-primary-50 dark:bg-primary-900/20 rounded-full flex items-center justify-center mb-4">
                         <x-heroicon-o-qr-code class="h-8 w-8 text-primary-500" />
                     </div>
                     <h3 class="text-sm font-bold text-gray-900 dark:text-white mb-1">Scan to Start</h3>
                     <p class="text-xs text-gray-500 dark:text-gray-400 max-w-[200px]">Point the camera at a book's QR code to begin the circulation process.</p>
                 </div>
-
-                <div x-show="$wire.bookCopy">
+                @else
+                <div class="space-y-6">
                     <!-- RETURN MODE -->
-                    <div x-show="$wire.processMode === 'return'" class="space-y-6">
+                    @if($processMode === 'return')
+                    <div class="space-y-6">
                         <div class="p-4 rounded-xl bg-orange-50 dark:bg-orange-900/10 border border-orange-100 dark:border-orange-900/20">
                             <label class="block text-[10px] font-bold uppercase tracking-widest text-orange-600 mb-3">Borrowed By</label>
                             <div class="flex items-center gap-3">
@@ -88,8 +97,10 @@
                                     <x-heroicon-s-user class="h-5 w-5 text-orange-600" />
                                 </div>
                                 <div>
-                                    <div class="text-sm font-bold text-gray-900 dark:text-white" x-text="$wire.currentLoan?.borrower?.name"></div>
-                                    <div class="text-[10px] text-orange-600 font-medium" x-text="($wire.currentLoan?.borrower?.class || 'No Class') + ' • ' + ($wire.currentLoan?.borrower?.identifier)"></div>
+                                    <div class="text-sm font-bold text-gray-900 dark:text-white">{{ $currentLoan?->borrower?->name }}</div>
+                                    <div class="text-[10px] text-orange-600 font-medium">
+                                        {{ $currentLoan?->borrower?->class ?? 'No Class' }} • {{ $currentLoan?->borrower?->identifier }}
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -102,9 +113,11 @@
                             Process Return
                         </button>
                     </div>
+                    @endif
 
                     <!-- LOAN MODE -->
-                    <div x-show="$wire.processMode === 'loan'" class="space-y-6">
+                    @if($processMode === 'loan')
+                    <div class="space-y-6">
                         <div class="p-1">
                             {{ $this->form }}
                         </div>
@@ -112,17 +125,19 @@
                         <button type="button" 
                             wire:click="processLoan"
                             wire:loading.attr="disabled"
-                            x-bind:disabled="!$wire.data.borrower_id"
+                            @disabled(!$this->data['borrower_id'])
                             class="w-full inline-flex items-center justify-center px-4 py-3 bg-primary-600 hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-xl font-bold text-sm transition-colors shadow-lg shadow-primary-500/20">
                             <x-filament::loading-indicator wire:loading class="h-4 w-4 mr-2" />
                             Process Loan
                         </button>
                     </div>
+                    @endif
 
-                    <button type="button" wire:click="resetScanner" class="w-full mt-4 text-[10px] font-bold uppercase tracking-widest text-gray-400 hover:text-gray-600 transition-colors py-2">
+                    <button type="button" wire:click="resetScanner" x-on:click="scanning = true" class="w-full mt-4 text-[10px] font-bold uppercase tracking-widest text-gray-400 hover:text-gray-600 transition-colors py-2">
                         Cancel & Clear
                     </button>
                 </div>
+                @endif
             </div>
         </aside>
     </div>
@@ -144,64 +159,49 @@
             
             let stream = null;
             let detector = null;
-            let scanning = true;
-            let currentFacingMode = 'environment';
             let loopId = null;
+            let currentFacingMode = 'environment';
+            let isScanning = true;
 
             window.addEventListener('scanner-reset', () => {
-                console.log('Scanner reset received');
-                scanning = true;
+                console.log('JS: Scanner reset triggered');
+                isScanning = true;
                 if (!loopId) loopId = requestAnimationFrame(scanFrame);
             });
 
             async function initDetector() {
                 try {
                     const check = () => window.BarcodeDetector ? true : false;
-                    
                     if (!check()) {
                         await new Promise(resolve => {
                             const interval = setInterval(() => {
-                                if (check()) {
-                                    clearInterval(interval);
-                                    resolve();
-                                }
+                                if (check()) { clearInterval(interval); resolve(); }
                             }, 50);
                         });
                     }
-                    
                     const formats = await window.BarcodeDetector.getSupportedFormats();
                     if (formats.includes('qr_code')) {
                         detector = new window.BarcodeDetector({ formats: ['qr_code'] });
                         return true;
                     }
                     return false;
-                } catch (e) {
-                    return false;
-                }
+                } catch (e) { return false; }
             }
 
             async function startCamera(facingMode = 'environment') {
-                if (stream) {
-                    stream.getTracks().forEach(track => track.stop());
-                }
-
+                if (stream) { stream.getTracks().forEach(track => track.stop()); }
                 try {
                     stream = await navigator.mediaDevices.getUserMedia({
-                        video: { 
-                            facingMode: facingMode,
-                            width: { ideal: 1280 },
-                            height: { ideal: 720 }
-                        },
+                        video: { facingMode, width: { ideal: 1280 }, height: { ideal: 720 } },
                         audio: false
                     });
                     video.srcObject = stream;
                     currentFacingMode = facingMode;
-                    
                     video.onloadedmetadata = () => {
                         statusDot.classList.replace('bg-yellow-500', 'bg-green-500');
                         statusDot.classList.add('shadow-[0_0_10px_rgba(34,197,94,0.5)]');
                         statusText.textContent = 'Scanner Active';
-                        scanning = true;
+                        isScanning = true;
                         if (loopId) cancelAnimationFrame(loopId);
                         loopId = requestAnimationFrame(scanFrame);
                     };
@@ -212,7 +212,7 @@
             }
 
             async function scanFrame() {
-                if (!scanning || !detector || video.readyState !== video.HAVE_ENOUGH_DATA) {
+                if (!isScanning || !detector || video.readyState !== video.HAVE_ENOUGH_DATA) {
                     loopId = requestAnimationFrame(scanFrame);
                     return;
                 }
@@ -221,20 +221,22 @@
                     const barcodes = await detector.detect(video);
                     if (barcodes.length > 0) {
                         const value = barcodes[0].rawValue;
-                        console.log('QR Scanned:', value);
+                        console.log('JS: QR Scanned:', value);
                         
-                        // Visual feedback
+                        // Local feedback
                         statusDot.classList.add('scale-150');
                         setTimeout(() => statusDot.classList.remove('scale-150'), 200);
 
-                        // Use Livewire.dispatch for standard event communication
+                        console.log('JS: Dispatching event to Livewire...');
                         Livewire.dispatch('qr-scanned', { value: value });
                         
-                        scanning = false; // Pause while processing
+                        isScanning = false;
+                        window.dispatchEvent(new CustomEvent('scanner-captured'));
+                        
                         loopId = null;
                         return;
                     }
-                } catch (e) {}
+                } catch (e) { console.error('JS: Detection error:', e); }
 
                 loopId = requestAnimationFrame(scanFrame);
             }
@@ -244,19 +246,16 @@
                 startCamera(currentFacingMode);
             });
 
-            const init = async () => {
-                if (await initDetector()) {
-                    startCamera(currentFacingMode);
-                } else {
+            initDetector().then(ready => {
+                if (ready) startCamera(currentFacingMode);
+                else {
                     statusText.textContent = 'Unsupported Browser';
                     statusDot.classList.replace('bg-yellow-500', 'bg-red-500');
                 }
-            };
-
-            init();
+            });
 
             document.addEventListener('livewire:navigating', () => {
-                scanning = false;
+                isScanning = false;
                 if (loopId) cancelAnimationFrame(loopId);
                 if (stream) stream.getTracks().forEach(track => track.stop());
             });

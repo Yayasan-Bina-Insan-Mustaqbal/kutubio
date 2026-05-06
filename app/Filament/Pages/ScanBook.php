@@ -81,6 +81,7 @@ class ScanBook extends Page implements HasForms
         \Illuminate\Support\Facades\Log::info('QR Scanned on server:', ['value' => $value]);
 
         if ($this->scannedQrCode === $value && $this->bookCopy) {
+            \Illuminate\Support\Facades\Log::info('QR already processed, skipping.');
             $this->dispatch('scanner-reset');
             return;
         }
@@ -89,6 +90,7 @@ class ScanBook extends Page implements HasForms
         $this->bookCopy = BookCopy::with(['book', 'book.category'])->where('qr_payload', $value)->first();
 
         if (! $this->bookCopy) {
+            \Illuminate\Support\Facades\Log::warning('Book not found for QR:', ['value' => $value]);
             $this->processMode = 'not_found';
             $this->currentLoan = null;
             
@@ -102,14 +104,18 @@ class ScanBook extends Page implements HasForms
             return;
         }
 
+        \Illuminate\Support\Facades\Log::info('Book found:', ['title' => $this->bookCopy->book?->title]);
+
         $this->currentLoan = Loan::with('borrower')
             ->where('book_copy_id', $this->bookCopy->id)
             ->where('status', LoanStatus::Active)
             ->first();
 
         if ($this->currentLoan) {
+            \Illuminate\Support\Facades\Log::info('Active loan found, setting mode to return.');
             $this->processMode = 'return';
         } else {
+            \Illuminate\Support\Facades\Log::info('No active loan, setting mode to loan.');
             $this->processMode = 'loan';
             $this->form->fill();
         }
