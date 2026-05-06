@@ -44,10 +44,14 @@ class AdminPanelProvider extends PanelProvider
                 FilamentInfoWidget::class,
             ])
             ->navigationGroups([
+                'Circulation',
+                'Intake',
+                'Library',
+                'Printing',
+                'System',
                 \Filament\Navigation\NavigationGroup::make()
                      ->label('Settings')
-                     ->collapsed()
-                     ->sort(100),
+                     ->collapsed(),
             ])
             ->middleware([
                 EncryptCookies::class,
