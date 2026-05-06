@@ -23,6 +23,9 @@ use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use UnitEnum;
 
+use App\Filament\Resources\Borrowers\Schemas\BorrowerForm;
+use App\Filament\Resources\Borrowers\Tables\BorrowersTable;
+
 class BorrowerResource extends Resource
 {
     protected static ?string $model = Borrower::class;
@@ -37,48 +40,12 @@ class BorrowerResource extends Resource
 
     public static function form(Schema $schema): Schema
     {
-        return $schema
-            ->components([
-                TextInput::make('name')
-                    ->required()
-                    ->maxLength(255),
-                Select::make('type')
-                    ->options(BorrowerType::class)
-                    ->required(),
-                TextInput::make('identifier')
-                    ->required()
-                    ->unique(ignoreRecord: true),
-                TextInput::make('surreal_id')
-                    ->disabled()
-                    ->dehydrated(false),
-                Textarea::make('notes')
-                    ->columnSpanFull(),
-            ]);
+        return BorrowerForm::configure($schema);
     }
 
     public static function table(Table $table): Table
     {
-        return $table
-            ->columns([
-                TextColumn::make('name')
-                    ->searchable()
-                    ->sortable(),
-                TextColumn::make('type')
-                    ->badge()
-                    ->sortable(),
-                TextColumn::make('identifier')
-                    ->searchable()
-                    ->sortable(),
-                TextColumn::make('status')
-                    ->badge(),
-                TextColumn::make('created_at')
-                    ->dateTime()
-                    ->sortable()
-                    ->toggleable(isToggledHiddenByDefault: true),
-            ])
-            ->filters([
-                //
-            ])
+        return BorrowersTable::configure($table)
             ->actions([
                 ViewAction::make(),
                 EditAction::make(),
