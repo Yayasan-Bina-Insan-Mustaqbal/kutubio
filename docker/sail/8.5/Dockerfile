@@ -29,6 +29,8 @@ RUN apt-get update \
 COPY --from=mlocati/php-extension-installer /usr/bin/install-php-extensions /usr/local/bin/
 RUN install-php-extensions pgsql pdo_pgsql gd bcmath intl zip msgpack igbinary redis swoole imagick
 
+COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
+
 RUN groupadd --force -g $WWWGROUP sail
 RUN useradd -ms /bin/bash --no-user-group -g $WWWGROUP -u 1337 sail
 RUN git config --global --add safe.directory /var/www/html
