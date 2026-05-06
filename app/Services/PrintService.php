@@ -59,10 +59,14 @@ final class PrintService
     /**
      * Generate book cards PDF.
      */
-    public function generateBookCards(Collection $books): string
+    public function generateBookCards(Collection $items): string
     {
+        $settings = \App\Models\GeneralSetting::find(1);
+        $libraryName = $settings?->library_name ?? 'Kutubio Library';
+
         $html = View::make('print.book-card', [
-            'books' => $books,
+            'items' => $items,
+            'libraryName' => $libraryName,
         ])->render();
 
         return $this->renderPdfFromHtml($html);

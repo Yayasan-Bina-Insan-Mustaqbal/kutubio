@@ -27,7 +27,7 @@ class UserResource extends Resource
 
     protected static ?string $modelLabel = 'Staff';
 
-    protected static string|UnitEnum|null $navigationGroup = 'Circulation';
+    protected static string|UnitEnum|null $navigationGroup = 'Settings';
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedUsers;
 
