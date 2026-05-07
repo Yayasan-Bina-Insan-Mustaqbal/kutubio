@@ -39,6 +39,8 @@
     
     # Run production tasks inside the built container
     docker compose exec -T laravel.test composer install --no-interaction --prefer-dist --optimize-autoloader
+    docker compose exec -T laravel.test npm install
+    docker compose exec -T laravel.test npm run build
     docker compose exec -T laravel.test php artisan key:generate --force
     docker compose exec -T laravel.test php artisan migrate --force
     docker compose exec -T laravel.test php artisan optimize
