@@ -25,6 +25,10 @@
         sed -i 's/DB_CONNECTION=sqlite/DB_CONNECTION=pgsql/g' .env
         sed -i 's/DB_HOST=127.0.0.1/DB_HOST=pgsql/g' .env
         sed -i 's/REDIS_HOST=127.0.0.1/REDIS_HOST=redis/g' .env
+
+        # Production User setup for Sail
+        echo "WWWUSER=$(id -u)" >> .env
+        echo "WWWGROUP=$(id -g)" >> .env
     fi
 
     # Build and start containers
