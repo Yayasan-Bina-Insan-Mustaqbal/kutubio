@@ -31,23 +31,19 @@
         echo "WWWGROUP=$(id -g)" >> .env
     fi
 
-    # Build and start containers
-    # WWWUSER and WWWGROUP are needed for Sail's build process
+    # Build and start containers using the production compose file
     export WWWUSER=$(id -u)
     export WWWGROUP=$(id -g)
-    docker compose up -d --build
+    docker compose -f docker-compose.prod.yml up -d --build
     
     # Run production tasks inside the built container
-    docker compose exec -T laravel.test composer install --no-interaction --prefer-dist --optimize-autoloader
-    docker compose exec -T laravel.test npm install
-    docker compose exec -T laravel.test npm run build
-    docker compose exec -T laravel.test php artisan key:generate --force
-    docker compose exec -T laravel.test php artisan migrate --force
-    docker compose exec -T laravel.test php artisan optimize
-    docker compose exec -T laravel.test php artisan horizon:terminate
+    docker compose -f docker-compose.prod.yml exec -T app php artisan key:generate --force
+    docker compose -f docker-compose.prod.yml exec -T app php artisan migrate --force
+    docker compose -f docker-compose.prod.yml exec -T app php artisan optimize
+    docker compose -f docker-compose.prod.yml exec -T app php artisan horizon:terminate
 @endtask
 
 @task('status', ['on' => 'prod'])
     cd {{ $app_dir }}
-    docker compose ps
+    docker compose -f docker-compose.prod.yml ps
 @endtask

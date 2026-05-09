@@ -1,44 +1,79 @@
-FROM php:8.5-cli-bookworm
+# Stage 1: PHP Builder
+FROM php:8.5-cli-bookworm as php-builder
 
-LABEL maintainer="Taylor Otwell"
+ENV DEBIAN_FRONTEND=noninteractive
+WORKDIR /var/www/html
 
-ARG WWWGROUP
+# Install OS-level dependencies for PHP extensions and composer
+RUN apt-get update && apt-get install -y \
+    curl \
+    unzip \
+    libzip-dev \
+    libpng-dev \
+    libonig-dev \
+    libxml2-dev \
+    libpq-dev \
+    libicu-dev \
+    && apt-get clean && rm -rf /var/lib/apt/lists/*
+
+# Install PHP extensions
+RUN docker-php-ext-install pdo pdo_pgsql zip gd bcmath pcntl intl
+
+# Install Composer
+COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
+
+# Copy application files and install composer dependencies
+COPY . .
+RUN composer install --no-dev --no-interaction --optimize-autoloader
+
+# Stage 2: Node Builder
+FROM node:20 as node-builder
 
 WORKDIR /var/www/html
 
-ENV DEBIAN_FRONTEND=noninteractive
-ENV TZ=UTC
-ENV LANG=C.UTF-8
-ENV SUPERVISOR_PHP_COMMAND="/usr/local/bin/php -d variables_order=EGPCS /var/www/html/artisan serve --host=0.0.0.0 --port=80"
-ENV SUPERVISOR_PHP_USER="sail"
+# Copy application files and install npm dependencies
+COPY --from=php-builder /var/www/html .
+RUN npm install
+RUN npm run build
 
-RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
+# Stage 3: Production Image (PHP-FPM)
+FROM php:8.5-fpm-bookworm as production
 
-RUN apt-get update \
-    && apt-get install -y gnupg gosu curl ca-certificates zip unzip git supervisor libpng-dev nano  \
-    && curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg \
-    && echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_24.x nodistro main" > /etc/apt/sources.list.d/nodesource.list \
-    && apt-get update \
-    && apt-get install -y nodejs \
-    && npm install -g npm \
-    && apt-get -y autoremove \
-    && apt-get clean \
-    && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
+ARG WWWGROUP
+WORKDIR /var/www/html
 
-# Install PHP extensions using the helper (much smaller than apt-get install php-*)
-COPY --from=mlocati/php-extension-installer /usr/bin/install-php-extensions /usr/local/bin/
-RUN install-php-extensions pgsql pdo_pgsql gd bcmath intl zip msgpack igbinary redis swoole imagick pcntl
+# Install only necessary production OS dependencies
+RUN apt-get update && apt-get install -y \
+    libzip-dev \
+    libpng-dev \
+    libpq-dev \
+    libicu-dev \
+    gosu \
+    && apt-get clean && rm -rf /var/lib/apt/lists/*
 
-COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
+# Install PHP extensions for production
+RUN docker-php-ext-install pdo pdo_pgsql zip gd bcmath pcntl intl
 
+# Setup sail user
 RUN groupadd --force -g $WWWGROUP sail
 RUN useradd -ms /bin/bash --no-user-group -g $WWWGROUP -u 1337 sail
-RUN git config --global --add safe.directory /var/www/html
 
-COPY start-container /usr/local/bin/start-container
-COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
-RUN chmod +x /usr/local/bin/start-container
+# Copy built application files with vendor dependencies
+COPY --from=php-builder /var/www/html .
 
-EXPOSE 80/tcp
+# Copy built frontend assets
+COPY --from=node-builder /var/www/html/public/build ./public/build
 
-ENTRYPOINT ["start-container"]
+RUN mkdir -p /etc/php-fpm.d
+COPY docker/sail/8.5/php-fpm.conf /etc/php-fpm.conf
+COPY docker/sail/8.5/www.conf /etc/php-fpm.d/www.conf
+
+USER root
+
+COPY docker/sail/8.5/entrypoint.sh /usr/local/bin/entrypoint.sh
+RUN chmod +x /usr/local/bin/entrypoint.sh
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
+
+EXPOSE 9000
+
+CMD ["php-fpm", "-y", "/etc/php-fpm.conf", "--nodaemonize"]
