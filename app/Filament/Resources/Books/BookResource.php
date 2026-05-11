@@ -58,10 +58,10 @@ class BookResource extends Resource
     {
         return BooksTable::configure($table)
             ->actions([
-                ViewAction::make()->iconButton(),
-                EditAction::make()->iconButton(),
+                \Filament\Actions\ViewAction::make()->iconButton(),
+                \Filament\Actions\EditAction::make()->iconButton(),
                 
-                Action::make('acquireMetadata')
+                \Filament\Actions\Action::make('acquireMetadata')
                     ->label('Acquire Metadata')
                     ->icon('heroicon-m-sparkles')
                     ->iconButton()
@@ -142,9 +142,9 @@ class BookResource extends Resource
                             ->send();
                     }),
 
-                DeleteAction::make()->iconButton()->hidden(),
-                RestoreAction::make()->iconButton()->hidden(),
-                ForceDeleteAction::make()->iconButton()->hidden(),
+                \Filament\Actions\DeleteAction::make()->iconButton()->hidden(),
+                \Filament\Actions\RestoreAction::make()->iconButton()->hidden(),
+                \Filament\Actions\ForceDeleteAction::make()->iconButton()->hidden(),
             ])
             ->bulkActions([
                 BulkActionGroup::make([
