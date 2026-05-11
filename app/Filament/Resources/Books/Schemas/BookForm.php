@@ -44,6 +44,23 @@ class BookForm
                             ->columnSpanFull(),
                     ])
                     ->columns(2),
+
+                Section::make('Inventory Management')
+                    ->schema([
+                        TextInput::make('current_copies_count')
+                            ->label('Current Copies')
+                            ->placeholder(fn ($record) => $record?->copies()->count() ?? 0)
+                            ->disabled()
+                            ->dehydrated(false),
+                        TextInput::make('add_copies')
+                            ->label('Add New Copies')
+                            ->helperText('Enter the number of additional copies to create. This will not delete existing ones.')
+                            ->numeric()
+                            ->default(0)
+                            ->dehydrated(false)
+                            ->visible(fn ($livewire) => $livewire instanceof \Filament\Resources\Pages\EditRecord),
+                    ])
+                    ->columns(2),
             ]);
     }
 }
