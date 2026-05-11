@@ -110,6 +110,23 @@ services:
         retries: 3
         timeout: 5s
 
+  searxng:
+    image: searxng/searxng:latest
+    container_name: kutubio-searxng
+    volumes:
+      - ./docker/searxng/settings.yml:/etc/searxng/settings.yml:ro
+    networks:
+      - sail
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  gotenberg:
+    image: gotenberg/gotenberg:8
+    container_name: kutubio-gotenberg
+    networks:
+      - sail
+
 networks:
   sail:
     driver: bridge

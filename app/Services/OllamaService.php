@@ -39,6 +39,8 @@ class OllamaService
      */
     public function extractFromImageBytes(string $imageBytes, string $prompt): array
     {
+        \Illuminate\Support\Facades\Log::info("OllamaService: Requesting extraction with model {$this->model}");
+        
         $response = Http::timeout(60)->post("{$this->baseUrl}/api/generate", [
             'model' => $this->model,
             'prompt' => $prompt,
@@ -48,9 +50,13 @@ class OllamaService
         ]);
 
         if ($response->failed()) {
+            \Illuminate\Support\Facades\Log::error("OllamaService: Request failed: " . $response->body());
             throw new Exception('Ollama API request failed: '.$response->body());
         }
 
-        return $response->json();
+        $result = $response->json();
+        \Illuminate\Support\Facades\Log::info("OllamaService: Received response: " . ($result['response'] ?? 'EMPTY'));
+        
+        return $result;
     }
 }

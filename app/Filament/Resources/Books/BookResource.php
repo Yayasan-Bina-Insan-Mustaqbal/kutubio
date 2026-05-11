@@ -95,6 +95,32 @@ class BookResource extends Resource
                             ->send();
                     }),
 
+                Action::make('addCopies')
+                    ->label('Add Copies')
+                    ->icon('heroicon-m-plus-circle')
+                    ->iconButton()
+                    ->color('success')
+                    ->form([
+                        \Filament\Forms\Components\TextInput::make('quantity')
+                            ->label('Number of copies to add')
+                            ->numeric()
+                            ->default(1)
+                            ->required(),
+                    ])
+                    ->action(function (Book $record, array $data) {
+                        for ($i = 0; $i < $data['quantity']; $i++) {
+                            $record->copies()->create([
+                                'status' => \App\Enums\BookCopyStatus::Draft,
+                                'acquired_at' => now(),
+                            ]);
+                        }
+
+                        Notification::make()
+                            ->title("Added {$data['quantity']} copies")
+                            ->success()
+                            ->send();
+                    }),
+
                 Action::make('flag_for_deletion')
                     ->label('Flag for Deletion')
                     ->icon('heroicon-o-flag')
@@ -159,7 +185,7 @@ class BookResource extends Resource
     public static function getRelations(): array
     {
         return [
-            //
+            RelationManagers\CopiesRelationManager::class,
         ];
     }
 

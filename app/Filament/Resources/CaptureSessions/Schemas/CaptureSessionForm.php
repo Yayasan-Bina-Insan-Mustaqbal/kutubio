@@ -29,6 +29,10 @@ class CaptureSessionForm
                         Textarea::make('decoded_qr_payload')
                             ->rows(2)
                             ->columnSpanFull(),
+                        \Filament\Forms\Components\TextInput::make('quantity')
+                            ->numeric()
+                            ->default(1)
+                            ->required(),
                         Textarea::make('failure_reason')
                             ->rows(3)
                             ->columnSpanFull(),

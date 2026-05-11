@@ -133,6 +133,20 @@ class CaptureSessionInfolist
                                 })
                                 ->requiresConfirmation()
                                 ->disabled(fn ($record) => ! $record->front_image_path || ! $record->back_image_path),
+                            Action::make('updateQuantity')
+                                ->label('Update Quantity')
+                                ->icon('heroicon-m-hashtag')
+                                ->color('info')
+                                ->form([
+                                    \Filament\Forms\Components\TextInput::make('quantity')
+                                        ->numeric()
+                                        ->required()
+                                        ->default(fn ($record) => $record->quantity),
+                                ])
+                                ->action(function ($record, $data) {
+                                    $record->update($data);
+                                    Notification::make()->title('Quantity updated')->success()->send();
+                                }),
                         ])
                             ->key('processingActions')
                             ->columnSpanFull(),
