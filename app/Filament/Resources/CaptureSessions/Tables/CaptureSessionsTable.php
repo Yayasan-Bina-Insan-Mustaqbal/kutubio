@@ -4,8 +4,8 @@ namespace App\Filament\Resources\CaptureSessions\Tables;
 
 use App\Enums\CaptureSessionStatus;
 use App\Enums\QrParseStatus;
-use Filament\Actions\EditAction;
-use Filament\Actions\ViewAction;
+use Filament\Tables\Actions\EditAction;
+use Filament\Tables\Actions\ViewAction;
 use Filament\Tables\Columns\ImageColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;

@@ -85,12 +85,24 @@ class PersistCaptureSessionJob implements ShouldQueue
                 $authors = $visionData['authors'] ?? [];
                 $authorsDisplay = is_array($authors) ? implode(', ', $authors) : $authors;
 
+                // Find category by DDC code if suggested
+                $categoryId = null;
+                $summaryData = $this->captureSession->metadataRevisions()
+                    ->where('source_stage', 'final_summary')
+                    ->latest()
+                    ->first()?->payload ?? [];
+                
+                if (!empty($summaryData['category_code'])) {
+                    $categoryId = \App\Models\Category::where('code', (string) $summaryData['category_code'])->first()?->id;
+                }
+
                 $book = Book::create([
                     'title' => $visionData['title'],
                     'authors_display' => $authorsDisplay,
                     'isbn13' => $isbn,
                     'publisher' => $visionData['publisher'] ?? null,
                     'subtitle' => $visionData['subtitle'] ?? null,
+                    'category_id' => $categoryId,
                 ]);
             }
 

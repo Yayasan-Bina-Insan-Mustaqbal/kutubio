@@ -56,15 +56,17 @@ class SummarizeCaptureSessionJob implements ShouldQueue
 
         try {
             // We use the regular LLM model for summarization, not vision
-            $prompt = 'Analyze the following collected metadata from a book capture session and provide a final summary. 
+            $prompt = 'Analyze the following collected metadata from a book capture session and provide a final summary and categorization. 
             Identify if any critical information is missing (Title, Author, ISBN/CopyID). 
+            Also suggest the most appropriate DDC (Dewey Decimal Classification) category code (3 digits, e.g., 200, 300, 600).
             
             Collected Data: '.json_encode($collectedData)."
             
             Respond ONLY with a JSON object containing: 
             'summary' (string), 
             'missing_fields' (array of strings), 
-            'is_ready_for_approval' (boolean).";
+            'is_ready_for_approval' (boolean),
+            'category_code' (string, 3-digit DDC code).";
 
             // Note: For pure text tasks, we could use OLLAMA_LLM_MODEL
             // but for simplicity we'll use the OllamaService with no image.
