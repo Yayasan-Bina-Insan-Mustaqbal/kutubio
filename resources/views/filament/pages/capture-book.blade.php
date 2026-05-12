@@ -116,14 +116,14 @@
                                     x-text="token"
                                     x-on:click="toggleAuthorToken(index)"
                                     class="cursor-pointer select-none rounded-lg px-2 py-1 text-sm font-medium transition-all duration-200"
-                                    :class="isAuthorSelected(index) ? 'bg-secondary-500 text-white shadow-lg shadow-secondary-500/30 scale-105' : 'bg-white border border-gray-100 text-gray-700 hover:border-secondary-300 dark:bg-gray-800 dark:border-white/5 dark:text-gray-300 dark:hover:bg-gray-700'"
+                                    :class="isAuthorSelected(index) ? 'bg-primary-500 text-white shadow-lg shadow-primary-500/30 scale-105' : 'bg-white border border-gray-100 text-gray-700 hover:border-primary-300 dark:bg-gray-800 dark:border-white/5 dark:text-gray-300 dark:hover:bg-gray-700'"
                                 ></span>
                             </template>
                         </div>
 
                         <!-- Selected Author Preview -->
-                        <div class="rounded-xl border border-secondary-100 bg-secondary-50/30 p-4 dark:border-secondary-900/20 dark:bg-secondary-900/5">
-                            <p class="mb-1 text-[10px] font-bold uppercase tracking-widest text-secondary-600 dark:text-secondary-400">Selected Author</p>
+                        <div class="rounded-xl border border-primary-100 bg-primary-50/30 p-4 dark:border-primary-900/20 dark:bg-primary-900/5">
+                            <p class="mb-1 text-[10px] font-bold uppercase tracking-widest text-primary-600 dark:text-primary-400">Selected Author</p>
                             <p class="text-sm font-semibold text-gray-900 dark:text-white" :class="!$wire.bookAuthors && 'italic font-normal text-gray-400'" x-text="$wire.bookAuthors || 'Select author words...'"></p>
                         </div>
 
