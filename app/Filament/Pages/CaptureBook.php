@@ -5,10 +5,7 @@ namespace App\Filament\Pages;
 use App\Enums\CaptureSessionStatus;
 use App\Enums\MetadataRevisionType;
 use App\Filament\Resources\CaptureSessions\CaptureSessionResource;
-use App\Jobs\ExtractBookDataWithVisionJob;
 use App\Jobs\PersistCaptureSessionJob;
-use App\Jobs\ReadIsbnQrCodeJob;
-use App\Jobs\SummarizeCaptureSessionJob;
 use App\Models\CaptureSession;
 use App\Models\MetadataRevision;
 use App\Services\BookCoverOcrService;
@@ -18,7 +15,6 @@ use Exception;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Filament\Support\Icons\Heroicon;
-use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
@@ -63,6 +59,8 @@ class CaptureBook extends Page
 
     public ?string $bookTitle = null;
 
+    public ?string $bookAuthors = null;
+
     public array $ocrTokens = [];
 
     public bool $isExtracting = false;
@@ -86,6 +84,7 @@ class CaptureBook extends Page
         $this->frontImageWidth = null;
         $this->frontImageHeight = null;
         $this->bookTitle = null;
+        $this->bookAuthors = null;
         $this->ocrTokens = [];
 
         $this->dispatch('capture-reset');
@@ -129,7 +128,7 @@ class CaptureBook extends Page
 
             Storage::disk('public')->delete($tempPath);
 
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             Log::error('Manual extraction failed: '.$e->getMessage());
             if (! $silent) {
                 Notification::make()
@@ -160,6 +159,7 @@ class CaptureBook extends Page
             'frontOcrConfidence' => ['nullable', 'numeric', 'min:0', 'max:1'],
             'quantity' => ['required', 'integer', 'min:1'],
             'bookTitle' => ['nullable', 'string', 'max:255'],
+            'bookAuthors' => ['nullable', 'string', 'max:500'],
         ];
     }
 
@@ -228,6 +228,7 @@ class CaptureBook extends Page
                 'source_actor_id' => auth()->id(),
                 'payload' => [
                     'title' => $this->bookTitle,
+                    'authors' => $this->bookAuthors ? array_values(array_filter(array_map('trim', explode(',', $this->bookAuthors)))) : [],
                     'isbn' => $this->lastScannedIsbn,
                     'front_image_path' => $frontImage['path'],
                     'isbn_barcode_value' => $this->isbnBarcodeValue,

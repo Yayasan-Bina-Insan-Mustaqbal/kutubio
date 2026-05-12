@@ -62,7 +62,6 @@
                 </div>
             </section>
 
-            <!-- Right Side: Controls -->
             <aside class="space-y-4" x-data="tokenSelector">
                 <!-- Book Title Section -->
                 <div class="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-gray-900">
@@ -72,33 +71,61 @@
 
                     <div class="space-y-4">
                         <!-- Token Sentence Container -->
-                        <div id="token-sentence-container" class="flex min-h-[120px] flex-wrap content-start gap-1.5 rounded-xl border border-gray-100 bg-gray-50/50 p-4 text-base leading-relaxed dark:border-white/10 dark:bg-gray-800/50">
+                        <div class="flex min-h-[100px] flex-wrap content-start gap-1.5 rounded-xl border border-gray-100 bg-gray-50/50 p-4 text-base leading-relaxed dark:border-white/10 dark:bg-gray-800/50">
                             <template x-if="! $wire.ocrTokens || $wire.ocrTokens.length === 0">
                                 <div class="flex flex-col items-center justify-center w-full py-4 text-center">
                                     <x-heroicon-m-camera class="h-8 w-8 text-gray-300 dark:text-gray-600 mb-2" />
-                                    <span class="text-xs italic text-gray-400">Capture front cover to extract title...</span>
+                                    <span class="text-xs italic text-gray-400">Capture front cover...</span>
                                 </div>
                             </template>
-                            <template x-for="(token, index) in $wire.ocrTokens" :key="index">
+                            <template x-for="(token, index) in $wire.ocrTokens" :key="'title-'+index">
                                 <span 
                                     x-text="token"
-                                    x-on:click="toggleToken(index)"
+                                    x-on:click="toggleTitleToken(index)"
                                     class="cursor-pointer select-none rounded-lg px-2 py-1 text-sm font-medium transition-all duration-200"
-                                    :class="isSelected(index) ? 'bg-primary-500 text-white shadow-lg shadow-primary-500/30 scale-105' : 'bg-white border border-gray-100 text-gray-700 hover:border-primary-300 dark:bg-gray-800 dark:border-white/5 dark:text-gray-300 dark:hover:bg-gray-700'"
+                                    :class="isTitleSelected(index) ? 'bg-primary-500 text-white shadow-lg shadow-primary-500/30 scale-105' : 'bg-white border border-gray-100 text-gray-700 hover:border-primary-300 dark:bg-gray-800 dark:border-white/5 dark:text-gray-300 dark:hover:bg-gray-700'"
                                 ></span>
                             </template>
                         </div>
 
                         <!-- Selected Title Preview -->
-                        <div class="rounded-xl border border-primary-100 bg-primary-50/30 p-4 dark:border-primary-900/20 dark:bg-primary-900/5 overflow-hidden relative">
-                            <div class="absolute top-0 right-0 p-2 opacity-10">
-                                <x-heroicon-m-bookmark class="h-12 w-12 text-primary-500" />
-                            </div>
-                            <p class="mb-1.5 text-[10px] font-bold uppercase tracking-widest text-primary-600 dark:text-primary-400">Selected Title</p>
-                            <p class="min-h-[1.5rem] text-sm font-semibold text-gray-900 dark:text-white leading-snug" :class="!$wire.bookTitle && 'italic font-normal text-gray-400'" x-text="$wire.bookTitle || 'Select words from above...'"></p>
+                        <div class="rounded-xl border border-primary-100 bg-primary-50/30 p-4 dark:border-primary-900/20 dark:bg-primary-900/5">
+                            <p class="mb-1 text-[10px] font-bold uppercase tracking-widest text-primary-600 dark:text-primary-400">Selected Title</p>
+                            <p class="text-sm font-semibold text-gray-900 dark:text-white" :class="!$wire.bookTitle && 'italic font-normal text-gray-400'" x-text="$wire.bookTitle || 'Select title words...'"></p>
                         </div>
-                        
-                        <input type="hidden" wire:model="bookTitle" id="bookTitle">
+                    </div>
+                </div>
+
+                <!-- Book Author Section -->
+                <div class="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-gray-900">
+                    <label class="mb-3 block text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                        Author Name Extraction
+                    </label>
+
+                    <div class="space-y-4">
+                        <!-- Token Sentence Container -->
+                        <div class="flex min-h-[100px] flex-wrap content-start gap-1.5 rounded-xl border border-gray-100 bg-gray-50/50 p-4 text-base leading-relaxed dark:border-white/10 dark:bg-gray-800/50">
+                            <template x-if="! $wire.ocrTokens || $wire.ocrTokens.length === 0">
+                                <div class="flex flex-col items-center justify-center w-full py-4 text-center">
+                                    <x-heroicon-m-user class="h-8 w-8 text-gray-300 dark:text-gray-600 mb-2" />
+                                    <span class="text-xs italic text-gray-400">Capture front cover...</span>
+                                </div>
+                            </template>
+                            <template x-for="(token, index) in $wire.ocrTokens" :key="'author-'+index">
+                                <span 
+                                    x-text="token"
+                                    x-on:click="toggleAuthorToken(index)"
+                                    class="cursor-pointer select-none rounded-lg px-2 py-1 text-sm font-medium transition-all duration-200"
+                                    :class="isAuthorSelected(index) ? 'bg-secondary-500 text-white shadow-lg shadow-secondary-500/30 scale-105' : 'bg-white border border-gray-100 text-gray-700 hover:border-secondary-300 dark:bg-gray-800 dark:border-white/5 dark:text-gray-300 dark:hover:bg-gray-700'"
+                                ></span>
+                            </template>
+                        </div>
+
+                        <!-- Selected Author Preview -->
+                        <div class="rounded-xl border border-secondary-100 bg-secondary-50/30 p-4 dark:border-secondary-900/20 dark:bg-secondary-900/5">
+                            <p class="mb-1 text-[10px] font-bold uppercase tracking-widest text-secondary-600 dark:text-secondary-400">Selected Author</p>
+                            <p class="text-sm font-semibold text-gray-900 dark:text-white" :class="!$wire.bookAuthors && 'italic font-normal text-gray-400'" x-text="$wire.bookAuthors || 'Select author words...'"></p>
+                        </div>
 
                         <button 
                             type="button" 
@@ -204,12 +231,15 @@
     <script>
         document.addEventListener('alpine:init', () => {
             Alpine.data('tokenSelector', () => ({
-                selectedTokens: [],
+                selectedTitleTokens: [],
+                selectedAuthorTokens: [],
                 
                 init() {
                     this.$watch('$wire.ocrTokens', (tokens) => {
-                        this.selectedTokens = [];
+                        this.selectedTitleTokens = [];
+                        this.selectedAuthorTokens = [];
                         this.$wire.bookTitle = '';
+                        this.$wire.bookAuthors = '';
                         
                         // Auto-reset if OCR failed but we have image
                         if (this.$wire.frontImageData && (!tokens || tokens.length === 0)) {
@@ -220,22 +250,41 @@
                     });
                 },
 
-                toggleToken(index) {
-                    if (this.selectedTokens.includes(index)) {
-                        this.selectedTokens = this.selectedTokens.filter(i => i !== index);
+                toggleTitleToken(index) {
+                    if (this.selectedTitleTokens.includes(index)) {
+                        this.selectedTitleTokens = this.selectedTitleTokens.filter(i => i !== index);
                     } else {
-                        this.selectedTokens.push(index);
+                        this.selectedTitleTokens.push(index);
                     }
                     this.updateTitle();
                 },
 
-                isSelected(index) {
-                    return this.selectedTokens.includes(index);
+                toggleAuthorToken(index) {
+                    if (this.selectedAuthorTokens.includes(index)) {
+                        this.selectedAuthorTokens = this.selectedAuthorTokens.filter(i => i !== index);
+                    } else {
+                        this.selectedAuthorTokens.push(index);
+                    }
+                    this.updateAuthors();
+                },
+
+                isTitleSelected(index) {
+                    return this.selectedTitleTokens.includes(index);
+                },
+
+                isAuthorSelected(index) {
+                    return this.selectedAuthorTokens.includes(index);
                 },
 
                 updateTitle() {
-                    const sortedIndices = [...this.selectedTokens].sort((a, b) => a - b);
+                    const sortedIndices = [...this.selectedTitleTokens].sort((a, b) => a - b);
                     this.$wire.bookTitle = sortedIndices.map(i => this.$wire.ocrTokens[i]).join(' ');
+                    if (window.refreshActions) window.refreshActions();
+                },
+
+                updateAuthors() {
+                    const sortedIndices = [...this.selectedAuthorTokens].sort((a, b) => a - b);
+                    this.$wire.bookAuthors = sortedIndices.map(i => this.$wire.ocrTokens[i]).join(' ');
                     if (window.refreshActions) window.refreshActions();
                 }
             }));
