@@ -17,7 +17,10 @@ RUN apt-get update && apt-get install -y \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Install PHP extensions
-RUN docker-php-ext-install pdo pdo_pgsql zip gd bcmath pcntl intl
+RUN apt-get update && apt-get install -y libmagickwand-dev --no-install-recommends \
+    && pecl install redis \
+    && docker-php-ext-enable redis \
+    && docker-php-ext-install pdo pdo_pgsql zip gd bcmath pcntl intl exif
 
 # Install Composer
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
@@ -52,7 +55,9 @@ RUN apt-get update && apt-get install -y \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Install PHP extensions for production
-RUN docker-php-ext-install pdo pdo_pgsql zip gd bcmath pcntl intl
+RUN pecl install redis \
+    && docker-php-ext-enable redis \
+    && docker-php-ext-install pdo pdo_pgsql zip gd bcmath pcntl intl exif
 
 # Setup sail user
 RUN groupadd --force -g $WWWGROUP sail
