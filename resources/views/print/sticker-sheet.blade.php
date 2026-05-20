@@ -1,22 +1,26 @@
 <!DOCTYPE html>
 <html>
+
 <head>
     <style>
         @page {
             margin: 0;
             size: {{ $profile->page_width_mm }}mm {{ $profile->page_height_mm }}mm;
         }
+
         body {
             margin: 0;
             padding: 0;
             font-family: sans-serif;
         }
+
         .page {
             position: relative;
             width: {{ $profile->page_width_mm }}mm;
             height: {{ $profile->page_height_mm }}mm;
             overflow: hidden;
         }
+
         .grid {
             display: grid;
             grid-template-columns: repeat({{ $profile->grid_columns }}, {{ $profile->slot_width_mm }}mm);
@@ -26,30 +30,36 @@
             padding-left: {{ $profile->offset_x_mm }}mm;
             padding-top: {{ $profile->offset_y_mm }}mm;
         }
+
         .slot {
             width: {{ $profile->slot_width_mm }}mm;
             height: {{ $profile->slot_height_mm }}mm;
-            border: 0.1mm dashed #eee; /* Light boundary for alignment debug */
+            border: 0.1mm dashed #eee;
+            /* Light boundary for alignment debug */
             box-sizing: border-box;
             display: flex;
             align-items: center;
             padding: 2mm;
             overflow: hidden;
         }
+
         .qr {
             width: 18mm;
             height: 18mm;
             margin-right: 2mm;
         }
+
         .qr svg {
             width: 100%;
             height: 100%;
         }
+
         .meta {
             flex: 1;
             font-size: 7pt;
             line-height: 1.1;
         }
+
         .title {
             font-weight: bold;
             display: -webkit-box;
@@ -58,6 +68,7 @@
             overflow: hidden;
             margin-bottom: 1mm;
         }
+
         .call-number {
             font-family: monospace;
             background: #f0f0f0;
@@ -69,6 +80,7 @@
         }
     </style>
 </head>
+
 <body>
     <div class="page">
         <div class="grid">
@@ -83,12 +95,16 @@
                     </div>
                     <div class="meta">
                         <div class="title">{{ $item->book->title ?? $item->name ?? 'Untitled' }}</div>
-                        <div class="call-number" style="background: {{ $item->book->category->theme_bg_color ?? '#f0f0f0' }}; color: {{ $item->book->category->theme_text_color ?? '#333' }};">
-                            {{ $item->book->category->code ?? 'GEN' }} {{ \Illuminate\Support\Str::limit($item->book->category->label ?? 'General', 10) }}
+                        <div class="call-number"
+                            style="background: {{ $item->book->category->theme_bg_color ?? '#f0f0f0' }}; color: {{ $item->book->category->theme_text_color ?? '#333' }};">
+                            {{ $item->book->category->code ?? 'GEN' }}
+                            {{ \Illuminate\Support\Str::limit($item->book->category->label ?? 'General', 10) }}
                         </div>
                         <div style="margin-top: 0.8mm; display: flex; gap: 0.8mm; font-size: 5pt; font-weight: bold;">
-                            <span style="background: {{ $item->funding_source === 'BOS (Gov-Fund)' ? '#dcfce7' : '#e0f2fe' }}; color: {{ $item->funding_source === 'BOS (Gov-Fund)' ? '#15803d' : '#0369a1' }}; padding: 0.2mm 0.8mm; border-radius: 0.4mm;">{{ $item->funding_source }}</span>
-                            <span style="background: #f3f4f6; color: #374151; padding: 0.2mm 0.8mm; border-radius: 0.4mm;">{{ $item->purchase_year }}</span>
+                            <span
+                                style="background: {{ $item->funding_source === 'BOS (Gov-Fund)' ? '#dcfce7' : '#e0f2fe' }}; color: {{ $item->funding_source === 'BOS (Gov-Fund)' ? '#15803d' : '#0369a1' }}; padding: 0.2mm 0.8mm; border-radius: 0.4mm;">{{ $item->funding_source }}</span>
+                            <span
+                                style="background: #f3f4f6; color: #374151; padding: 0.2mm 0.8mm; border-radius: 0.4mm;">{{ $item->purchase_year }}</span>
                         </div>
                         <div style="font-size: 5pt; margin-top: 0.8mm; color: #666;">
                             <div>{{ $item->public_id }}</div>
@@ -100,4 +116,5 @@
         </div>
     </div>
 </body>
+
 </html>
