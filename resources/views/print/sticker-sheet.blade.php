@@ -83,9 +83,9 @@
                     </div>
                     <div class="meta">
                         <div class="title">{{ $item->book->title ?? $item->name ?? 'Untitled' }}</div>
-                        <div class="call-number">
+                        <div class="call-number" style="background: {{ $item->book->category->theme_bg_color ?? '#f0f0f0' }}; color: {{ $item->book->category->theme_text_color ?? '#333' }};">
                             {{ $item->book->category->code ?? 'GEN' }}
-                            - {{ $item->book->category->label ?? 'General' }}
+                            - {{ \Illuminate\Support\Str::limit($item->book->category->label ?? 'General', 10) }}
                         </div>
                         <div style="margin-top: 0.8mm; display: flex; gap: 0.8mm; font-size: 5pt; font-weight: bold;">
                             <span style="background: {{ $item->funding_source === 'BOS (Gov-Fund)' ? '#dcfce7' : '#e0f2fe' }}; color: {{ $item->funding_source === 'BOS (Gov-Fund)' ? '#15803d' : '#0369a1' }}; padding: 0.2mm 0.8mm; border-radius: 0.4mm;">{{ $item->funding_source }}</span>
