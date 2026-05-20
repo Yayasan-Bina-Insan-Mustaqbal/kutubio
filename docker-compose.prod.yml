@@ -15,7 +15,7 @@ services:
       DB_CONNECTION: pgsql
       DB_HOST: pgsql
       DB_PORT: 5432
-      DB_DATABASE: kutubio
+      DB_DATABASE: laravel
       DB_USERNAME: kutubio
       DB_PASSWORD: password
       REDIS_HOST: redis
@@ -50,7 +50,7 @@ services:
       DB_CONNECTION: pgsql
       DB_HOST: pgsql
       DB_PORT: 5432
-      DB_DATABASE: kutubio
+      DB_DATABASE: laravel
       DB_USERNAME: kutubio
       DB_PASSWORD: password
       REDIS_HOST: redis
@@ -71,7 +71,7 @@ services:
       DB_CONNECTION: pgsql
       DB_HOST: pgsql
       DB_PORT: 5432
-      DB_DATABASE: kutubio
+      DB_DATABASE: laravel
       DB_USERNAME: kutubio
       DB_PASSWORD: password
       REDIS_HOST: redis
@@ -89,7 +89,7 @@ services:
     ports:
         - '${FORWARD_DB_PORT:-5432}:5432'
     environment:
-        POSTGRES_DB: kutubio
+        POSTGRES_DB: laravel
         POSTGRES_USER: kutubio
         POSTGRES_PASSWORD: password
     volumes:
@@ -97,7 +97,7 @@ services:
     networks:
         - sail
     healthcheck:
-        test: ["CMD", "pg_isready", "-q", "-d", "kutubio", "-U", "kutubio"]
+        test: ["CMD", "pg_isready", "-q", "-d", "laravel", "-U", "kutubio"]
         retries: 3
         timeout: 5s
 
