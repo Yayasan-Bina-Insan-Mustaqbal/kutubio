@@ -195,7 +195,7 @@
                 <!-- Funding Source Section -->
                 <div class="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-gray-900"
                      x-data="{ 
-                         source: localStorage.getItem('kutubio_last_funding_source') || 'self',
+                         source: (localStorage.getItem('kutubio_last_funding_source') === 'BOS' ? 'BOSP' : localStorage.getItem('kutubio_last_funding_source')) || 'self',
                          init() {
                              this.$wire.set('fundingSource', this.source);
                              this.$watch('source', value => {
