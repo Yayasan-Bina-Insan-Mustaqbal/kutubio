@@ -118,7 +118,7 @@
                             </tr>
                         </thead>
                         <tbody>
-                            @for ($i = 0; $i < 9; $i++)
+                            @for ($i = 0; $i < 7; $i++)
                                 <tr>
                                     <td>&nbsp;</td>
                                     <td>&nbsp;</td>
@@ -127,6 +127,10 @@
                             @endfor
                         </tbody>
                     </table>
+                    
+                    <div style="text-align: center; font-size: 7pt; margin-top: 2mm; font-style: italic;">
+                        Please return this book within {{ $settings?->default_loan_duration_days ?? 7 }} days.
+                    </div>
                 </div>
             @endforeach
             

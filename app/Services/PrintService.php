@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\GeneralSetting;
 use App\Models\PrintProfile;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Http;
@@ -16,7 +17,7 @@ final class PrintService
     public function renderPdfFromHtml(string $html, array $options = []): string
     {
         $endpoint = config('services.gotenberg.endpoint', env('GOTENBERG_ENDPOINT', 'http://gotenberg:3000'));
-        
+
         $response = Http::asMultipart()
             ->attach('index.html', $html, 'index.html')
             ->post("{$endpoint}/forms/chromium/convert/html", array_merge([
@@ -29,7 +30,7 @@ final class PrintService
             ], $options));
 
         if ($response->failed()) {
-            throw new RuntimeException('Gotenberg PDF rendering failed: ' . $response->body());
+            throw new RuntimeException('Gotenberg PDF rendering failed: '.$response->body());
         }
 
         return $response->body();
@@ -40,7 +41,7 @@ final class PrintService
      */
     public function generateStickerSheet(Collection $items, PrintProfile $profile, int $skipSlots = 0): string
     {
-        $settings = \App\Models\GeneralSetting::find(1);
+        $settings = GeneralSetting::find(1);
         $libraryName = $settings?->library_name ?? 'Kutubio Library';
 
         $html = View::make('print.sticker-sheet', [
@@ -61,12 +62,13 @@ final class PrintService
      */
     public function generateBookCards(Collection $items): string
     {
-        $settings = \App\Models\GeneralSetting::find(1);
+        $settings = GeneralSetting::find(1);
         $libraryName = $settings?->library_name ?? 'Kutubio Library';
 
         $html = View::make('print.book-card', [
             'items' => $items,
             'libraryName' => $libraryName,
+            'settings' => $settings,
         ])->render();
 
         return $this->renderPdfFromHtml($html);
