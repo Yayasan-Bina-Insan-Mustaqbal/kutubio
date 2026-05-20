@@ -53,7 +53,7 @@ class BookCopy extends Model
 
         $source = $revision?->payload['funding_source'] ?? 'self';
 
-        return $source === 'BOS' ? 'BOS (Gov-Fund)' : 'Self-Fund';
+        return $source === 'BOSP' || $source === 'BOS' ? 'BOSP (Gov-Fund)' : 'Self-Fund';
     }
 
     /**

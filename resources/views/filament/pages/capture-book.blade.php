@@ -210,7 +210,7 @@
                     <div class="relative flex rounded-xl bg-gray-100 p-1 dark:bg-gray-800">
                         <!-- Slide Pill Indicator -->
                         <div class="absolute bottom-1 top-1 left-1 w-[calc(50%-4px)] rounded-lg bg-white shadow-sm transition-all duration-300 ease-in-out dark:bg-gray-700"
-                             :class="source === 'BOS' ? 'translate-x-full' : ''"></div>
+                             :class="source === 'BOSP' ? 'translate-x-full' : ''"></div>
                              
                         <button type="button" 
                                 @click="source = 'self'"
@@ -220,10 +220,10 @@
                         </button>
                         
                         <button type="button" 
-                                @click="source = 'BOS'"
+                                @click="source = 'BOSP'"
                                 class="relative z-10 w-1/2 py-2 text-center text-xs font-bold transition-colors duration-200"
-                                :class="source === 'BOS' ? 'text-primary-600 dark:text-primary-400' : 'text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white'">
-                            BOS (Gov-Fund)
+                                :class="source === 'BOSP' ? 'text-primary-600 dark:text-primary-400' : 'text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white'">
+                            BOSP (Gov-Fund)
                         </button>
                     </div>
                 </div>

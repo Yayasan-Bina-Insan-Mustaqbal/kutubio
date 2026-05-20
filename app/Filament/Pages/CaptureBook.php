@@ -162,7 +162,7 @@ class CaptureBook extends Page
             'frontOcrText' => ['nullable', 'string', 'max:5000'],
             'frontOcrConfidence' => ['nullable', 'numeric', 'min:0', 'max:1'],
             'quantity' => ['required', 'integer', 'min:1'],
-            'fundingSource' => ['required', 'string', 'in:self,BOS'],
+            'fundingSource' => ['required', 'string', 'in:self,BOS,BOSP'],
             'purchaseYear' => ['required', 'string', 'in:Old Collection,2023,2024,2025,2026,2027,2028,2029,20230'],
             'bookTitle' => ['nullable', 'string', 'max:255'],
             'bookAuthors' => ['nullable', 'string', 'max:500'],
