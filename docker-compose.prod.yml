@@ -7,6 +7,7 @@ services:
         WWWGROUP: '${WWWGROUP:-1000}'
     image: kutubio-app-prod
     container_name: kutubio-app
+    restart: unless-stopped
     environment:
       WWWUSER: '${WWWUSER:-1000}'
       LARAVEL_SAIL: 1
@@ -29,6 +30,7 @@ services:
   web:
     image: nginx:alpine
     container_name: kutubio-web
+    restart: unless-stopped
     ports:
       - '${APP_PORT:-80}:80'
     volumes:
@@ -42,6 +44,7 @@ services:
   horizon:
     image: kutubio-app-prod
     container_name: kutubio-horizon
+    restart: unless-stopped
     command: php artisan horizon
     environment:
       DB_CONNECTION: pgsql
@@ -62,6 +65,7 @@ services:
   scheduler:
     image: kutubio-app-prod
     container_name: kutubio-scheduler
+    restart: unless-stopped
     command: sh -c "while true; do php artisan schedule:run --verbose --no-interaction; sleep 60; done"
     environment:
       DB_CONNECTION: pgsql
@@ -81,6 +85,7 @@ services:
   pgsql:
     image: 'postgres:18-alpine'
     container_name: kutubio-pgsql
+    restart: unless-stopped
     ports:
         - '${FORWARD_DB_PORT:-5432}:5432'
     environment:
@@ -99,6 +104,7 @@ services:
   redis:
     image: 'redis:alpine'
     container_name: kutubio-redis
+    restart: unless-stopped
     ports:
         - '${FORWARD_REDIS_PORT:-6379}:6379'
     volumes:
@@ -113,6 +119,7 @@ services:
   searxng:
     image: searxng/searxng:latest
     container_name: kutubio-searxng
+    restart: unless-stopped
     volumes:
       - ./docker/searxng/settings.yml:/etc/searxng/settings.yml:ro
     networks:
@@ -124,6 +131,7 @@ services:
   gotenberg:
     image: gotenberg/gotenberg:8
     container_name: kutubio-gotenberg
+    restart: unless-stopped
     networks:
       - sail
 
