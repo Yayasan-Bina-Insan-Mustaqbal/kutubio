@@ -98,7 +98,7 @@
                         <div class="call-number"
                             style="background: {{ $item->book->category->theme_bg_color ?? '#f0f0f0' }}; color: {{ $item->book->category->theme_text_color ?? '#333' }};">
                             {{ $item->book->category->code ?? 'GEN' }}
-                            {{ \Illuminate\Support\Str::limit($item->book->category->label ?? 'General', 10) }}
+                            {{ \Illuminate\Support\Str::limit($item->book->category->label ?? 'General', 14) }}
                         </div>
                         <div style="margin-top: 0.8mm; display: flex; gap: 0.8mm; font-size: 5pt; font-weight: bold;">
                             <span
