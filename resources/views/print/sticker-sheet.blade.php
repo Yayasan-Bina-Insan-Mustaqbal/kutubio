@@ -63,6 +63,9 @@
             background: #f0f0f0;
             padding: 0.5mm 1mm;
             font-size: 8pt;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
     </style>
 </head>
@@ -82,7 +85,7 @@
                         <div class="title">{{ $item->book->title ?? $item->name ?? 'Untitled' }}</div>
                         <div class="call-number">
                             {{ $item->book->category->code ?? 'GEN' }}
-                            {{ substr($item->book->authors_display ?? 'UNK', 0, 3) }}
+                            - {{ $item->book->category->label ?? 'General' }}
                         </div>
                         <div style="margin-top: 0.8mm; display: flex; gap: 0.8mm; font-size: 5pt; font-weight: bold;">
                             <span style="background: {{ $item->funding_source === 'BOS (Gov-Fund)' ? '#dcfce7' : '#e0f2fe' }}; color: {{ $item->funding_source === 'BOS (Gov-Fund)' ? '#15803d' : '#0369a1' }}; padding: 0.2mm 0.8mm; border-radius: 0.4mm;">{{ $item->funding_source }}</span>
