@@ -104,4 +104,23 @@ class LibraryFoundationTest extends TestCase
 
         $this->assertTrue($revision->is($book->fresh()->approvedMetadataRevision));
     }
+
+    public function test_book_copy_resolves_funding_source_and_purchase_year(): void
+    {
+        $book = Book::factory()->create();
+
+        MetadataRevision::factory()->create([
+            'book_id' => $book->id,
+            'source_stage' => 'capture_page',
+            'payload' => [
+                'funding_source' => 'BOS',
+                'purchase_year' => '2024',
+            ],
+        ]);
+
+        $copy = BookCopy::factory()->create(['book_id' => $book->id]);
+
+        $this->assertSame('BOS (Gov-Fund)', $copy->funding_source);
+        $this->assertSame('2024', $copy->purchase_year);
+    }
 }

@@ -192,6 +192,72 @@
                     </div>
                 </div>
 
+                <!-- Funding Source Section -->
+                <div class="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-gray-900"
+                     x-data="{ 
+                         source: localStorage.getItem('kutubio_last_funding_source') || 'self',
+                         init() {
+                             this.$wire.set('fundingSource', this.source);
+                             this.$watch('source', value => {
+                                 localStorage.setItem('kutubio_last_funding_source', value);
+                                 this.$wire.set('fundingSource', value);
+                             });
+                         }
+                     }">
+                    <label class="mb-3 block text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                        Funding Source
+                    </label>
+                    <div class="relative flex rounded-xl bg-gray-100 p-1 dark:bg-gray-800">
+                        <!-- Slide Pill Indicator -->
+                        <div class="absolute bottom-1 top-1 left-1 w-[calc(50%-4px)] rounded-lg bg-white shadow-sm transition-all duration-300 ease-in-out dark:bg-gray-700"
+                             :class="source === 'BOS' ? 'translate-x-full' : ''"></div>
+                             
+                        <button type="button" 
+                                @click="source = 'self'"
+                                class="relative z-10 w-1/2 py-2 text-center text-xs font-bold transition-colors duration-200"
+                                :class="source === 'self' ? 'text-primary-600 dark:text-primary-400' : 'text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white'">
+                            Self-Fund
+                        </button>
+                        
+                        <button type="button" 
+                                @click="source = 'BOS'"
+                                class="relative z-10 w-1/2 py-2 text-center text-xs font-bold transition-colors duration-200"
+                                :class="source === 'BOS' ? 'text-primary-600 dark:text-primary-400' : 'text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white'">
+                            BOS (Gov-Fund)
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Year of Purchase Section -->
+                <div class="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-gray-900"
+                     x-data="{
+                         selectedYear: localStorage.getItem('kutubio_last_purchase_year') || 'Old Collection',
+                         init() {
+                             this.$wire.set('purchaseYear', this.selectedYear);
+                             this.$watch('selectedYear', value => {
+                                 localStorage.setItem('kutubio_last_purchase_year', value);
+                                 this.$wire.set('purchaseYear', value);
+                             });
+                         }
+                     }">
+                    <label class="mb-3 block text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                        Year of Purchase
+                    </label>
+                    
+                    <div class="grid grid-cols-3 gap-2">
+                        <template x-for="year in ['Old Collection', '2023', '2024', '2025', '2026', '2027', '2028', '2029', '20230']" :key="year">
+                            <button type="button"
+                                    @click="selectedYear = year"
+                                    class="rounded-xl border py-2.5 text-center text-xs font-bold transition-all duration-200"
+                                    :class="selectedYear === year 
+                                        ? 'border-primary-500 bg-primary-50 text-primary-700 shadow-sm dark:bg-primary-500/10 dark:text-primary-400 dark:border-primary-500/30' 
+                                        : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300 hover:bg-gray-50 dark:border-white/10 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700'">
+                                <span x-text="year"></span>
+                            </button>
+                        </template>
+                    </div>
+                </div>
+
                 <!-- Submit Section -->
                 <button 
                     type="submit" 

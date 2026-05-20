@@ -8,9 +8,8 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Support\Str;
-
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Str;
 
 #[Fillable(['book_id', 'tracking_code', 'qr_payload', 'status', 'location_note', 'acquired_at', 'deletion_reason'])]
 class BookCopy extends Model
@@ -36,6 +35,42 @@ class BookCopy extends Model
     public function book(): BelongsTo
     {
         return $this->belongsTo(Book::class);
+    }
+
+    /**
+     * Get the funding source of the book copy from the capture metadata.
+     */
+    public function getFundingSourceAttribute(): string
+    {
+        if (! $this->book_id) {
+            return 'Self-Fund';
+        }
+
+        $revision = $this->book->metadataRevisions()
+            ->where('source_stage', 'capture_page')
+            ->latest()
+            ->first();
+
+        $source = $revision?->payload['funding_source'] ?? 'self';
+
+        return $source === 'BOS' ? 'BOS (Gov-Fund)' : 'Self-Fund';
+    }
+
+    /**
+     * Get the purchase year of the book copy from the capture metadata.
+     */
+    public function getPurchaseYearAttribute(): string
+    {
+        if (! $this->book_id) {
+            return 'Old Collection';
+        }
+
+        $revision = $this->book->metadataRevisions()
+            ->where('source_stage', 'capture_page')
+            ->latest()
+            ->first();
+
+        return $revision?->payload['purchase_year'] ?? 'Old Collection';
     }
 
     /**

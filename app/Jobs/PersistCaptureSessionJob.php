@@ -7,6 +7,8 @@ use App\Enums\CaptureSessionStatus;
 use App\Models\Book;
 use App\Models\BookCopy;
 use App\Models\CaptureSession;
+use App\Models\Category;
+use App\Services\OllamaService;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -91,9 +93,19 @@ class PersistCaptureSessionJob implements ShouldQueue
                     ->where('source_stage', 'final_summary')
                     ->latest()
                     ->first()?->payload ?? [];
-                
-                if (!empty($summaryData['category_code'])) {
-                    $categoryId = \App\Models\Category::where('code', (string) $summaryData['category_code'])->first()?->id;
+
+                if (! empty($summaryData['category_code'])) {
+                    $categoryId = Category::where('code', (string) $summaryData['category_code'])->first()?->id;
+                }
+
+                if (! $categoryId && ! empty($visionData['title'])) {
+                    $code = app(OllamaService::class)->classifyBook(
+                        $visionData['title'],
+                        $authorsDisplay
+                    );
+                    if ($code) {
+                        $categoryId = Category::where('code', (string) $code)->first()?->id;
+                    }
                 }
 
                 $book = Book::create([

@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Books;
 
+use App\Enums\BookCopyStatus;
 use App\Filament\Resources\Books\Pages\CreateBook;
 use App\Filament\Resources\Books\Pages\EditBook;
 use App\Filament\Resources\Books\Pages\ListBooks;
@@ -9,8 +10,8 @@ use App\Filament\Resources\Books\Pages\ViewBook;
 use App\Filament\Resources\Books\Schemas\BookForm;
 use App\Filament\Resources\Books\Schemas\BookInfolist;
 use App\Filament\Resources\Books\Tables\BooksTable;
-use App\Models\Book;
 use App\Jobs\FetchBookMetadataJob;
+use App\Models\Book;
 use BackedEnum;
 use Filament\Actions\Action;
 use Filament\Actions\BulkAction;
@@ -23,6 +24,7 @@ use Filament\Actions\RestoreAction;
 use Filament\Actions\ViewAction;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
+use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
@@ -58,10 +60,10 @@ class BookResource extends Resource
     {
         return BooksTable::configure($table)
             ->actions([
-                \Filament\Actions\ViewAction::make()->iconButton(),
-                \Filament\Actions\EditAction::make()->iconButton(),
-                
-                \Filament\Actions\Action::make('acquireMetadata')
+                ViewAction::make()->iconButton(),
+                EditAction::make()->iconButton(),
+
+                Action::make('acquireMetadata')
                     ->label('Acquire Metadata')
                     ->icon('heroicon-m-sparkles')
                     ->iconButton()
@@ -73,17 +75,19 @@ class BookResource extends Resource
                                 'open_library' => 'Open Library (ISBN)',
                                 'isbn_search' => 'ISBN Search (HTML Scraper)',
                                 'searxng' => 'SearxNG (Meta-search Engine)',
+                                'ollama_category' => 'Get Category from Ollama',
                             ])
                             ->default('open_library')
                             ->required(),
                     ])
                     ->action(function (Book $record, array $data) {
-                        if ($data['provider'] !== 'searxng' && empty($record->isbn13)) {
+                        if ($data['provider'] !== 'searxng' && $data['provider'] !== 'ollama_category' && empty($record->isbn13)) {
                             Notification::make()
                                 ->title('Metadata Acquisition Failed')
                                 ->body('Book has no ISBN-13.')
                                 ->danger()
                                 ->send();
+
                             return;
                         }
 
@@ -101,7 +105,7 @@ class BookResource extends Resource
                     ->iconButton()
                     ->color('success')
                     ->form([
-                        \Filament\Forms\Components\TextInput::make('quantity')
+                        TextInput::make('quantity')
                             ->label('Number of copies to add')
                             ->numeric()
                             ->default(1)
@@ -110,7 +114,7 @@ class BookResource extends Resource
                     ->action(function (Book $record, array $data) {
                         for ($i = 0; $i < $data['quantity']; $i++) {
                             $record->copies()->create([
-                                'status' => \App\Enums\BookCopyStatus::Draft,
+                                'status' => BookCopyStatus::Draft,
                                 'acquired_at' => now(),
                             ]);
                         }
@@ -142,14 +146,14 @@ class BookResource extends Resource
                             ->send();
                     }),
 
-                \Filament\Actions\DeleteAction::make()->iconButton()->hidden(),
-                \Filament\Actions\RestoreAction::make()->iconButton()->hidden(),
-                \Filament\Actions\ForceDeleteAction::make()->iconButton()->hidden(),
+                DeleteAction::make()->iconButton()->hidden(),
+                RestoreAction::make()->iconButton()->hidden(),
+                ForceDeleteAction::make()->iconButton()->hidden(),
             ])
             ->bulkActions([
                 BulkActionGroup::make([
                     DeleteBulkAction::make(),
-                    
+
                     BulkAction::make('acquireMetadataBulk')
                         ->label('Acquire Metadata')
                         ->icon('heroicon-m-sparkles')
@@ -160,6 +164,7 @@ class BookResource extends Resource
                                     'open_library' => 'Open Library (ISBN)',
                                     'isbn_search' => 'ISBN Search (HTML Scraper)',
                                     'searxng' => 'SearxNG (Meta-search Engine)',
+                                    'ollama_category' => 'Get Category from Ollama',
                                 ])
                                 ->default('open_library')
                                 ->required(),
@@ -167,7 +172,7 @@ class BookResource extends Resource
                         ->action(function (Collection $records, array $data) {
                             $count = 0;
                             foreach ($records as $record) {
-                                if ($data['provider'] === 'searxng' || !empty($record->isbn13)) {
+                                if ($data['provider'] === 'searxng' || $data['provider'] === 'ollama_category' || ! empty($record->isbn13)) {
                                     FetchBookMetadataJob::dispatch($record, $data['provider']);
                                     $count++;
                                 }

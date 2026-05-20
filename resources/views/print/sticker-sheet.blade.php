@@ -84,9 +84,13 @@
                             {{ $item->book->category->code ?? 'GEN' }}
                             {{ substr($item->book->authors_display ?? 'UNK', 0, 3) }}
                         </div>
-                        <div style="font-size: 5pt; margin-top: 1mm; color: #666;">
+                        <div style="margin-top: 0.8mm; display: flex; gap: 0.8mm; font-size: 5pt; font-weight: bold;">
+                            <span style="background: {{ $item->funding_source === 'BOS (Gov-Fund)' ? '#dcfce7' : '#e0f2fe' }}; color: {{ $item->funding_source === 'BOS (Gov-Fund)' ? '#15803d' : '#0369a1' }}; padding: 0.2mm 0.8mm; border-radius: 0.4mm;">{{ $item->funding_source }}</span>
+                            <span style="background: #f3f4f6; color: #374151; padding: 0.2mm 0.8mm; border-radius: 0.4mm;">{{ $item->purchase_year }}</span>
+                        </div>
+                        <div style="font-size: 5pt; margin-top: 0.8mm; color: #666;">
                             <div>{{ $item->public_id }}</div>
-                            <div style="font-style: italic; font-weight: bold; margin-top: 0.5mm;">{{ $libraryName }}</div>
+                            <div style="font-style: italic; font-weight: bold; margin-top: 0.4mm;">{{ $libraryName }}</div>
                         </div>
                     </div>
                 </div>

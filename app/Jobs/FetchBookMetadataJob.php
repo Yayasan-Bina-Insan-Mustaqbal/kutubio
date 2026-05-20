@@ -3,6 +3,8 @@
 namespace App\Jobs;
 
 use App\Models\Book;
+use App\Models\Category;
+use App\Services\OllamaService;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -10,7 +12,6 @@ use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Str;
 
 class FetchBookMetadataJob implements ShouldQueue
 {
@@ -29,16 +30,46 @@ class FetchBookMetadataJob implements ShouldQueue
 
         try {
             if ($this->provider === 'open_library') {
-                if (!$isbn) return;
-                $this->fetchFromOpenLibrary($isbn);
+                if ($isbn) {
+                    $this->fetchFromOpenLibrary($isbn);
+                }
             } elseif ($this->provider === 'isbn_search') {
-                if (!$isbn) return;
-                $this->withDelay(fn() => $this->fetchFromIsbnSearch($isbn));
+                if ($isbn) {
+                    $this->withDelay(fn () => $this->fetchFromIsbnSearch($isbn));
+                }
             } elseif ($this->provider === 'searxng') {
-                $this->withDelay(fn() => $this->fetchFromSearxNG());
+                $this->withDelay(fn () => $this->fetchFromSearxNG());
+            } elseif ($this->provider === 'ollama_category') {
+                $this->classifyWithOllama();
+
+                return;
+            }
+
+            // Skip online category database lookup - let the local AI decide the category!
+            if (empty($this->book->category_id) && ! empty($this->book->title)) {
+                $this->classifyWithOllama();
             }
         } catch (\Exception $e) {
-            Log::error("FetchBookMetadataJob: Error fetching metadata for book {$this->book->id}: " . $e->getMessage());
+            Log::error("FetchBookMetadataJob: Error fetching metadata for book {$this->book->id}: ".$e->getMessage());
+        }
+    }
+
+    protected function classifyWithOllama(): void
+    {
+        if (empty($this->book->title)) {
+            return;
+        }
+
+        $code = app(OllamaService::class)->classifyBook(
+            $this->book->title,
+            $this->book->authors_display
+        );
+        if ($code) {
+            $category = Category::where('code', (string) $code)->first();
+            if ($category) {
+                $this->book->update(['category_id' => $category->id]);
+                Log::info("FetchBookMetadataJob: AI classified book {$this->book->id} category as {$code} ({$category->label})");
+            }
         }
     }
 
@@ -58,6 +89,7 @@ class FetchBookMetadataJob implements ShouldQueue
 
         if ($response->failed()) {
             Log::error("FetchBookMetadataJob: Open Library API request failed for ISBN {$isbn}");
+
             return;
         }
 
@@ -66,33 +98,34 @@ class FetchBookMetadataJob implements ShouldQueue
 
         if (empty($data[$bookKey])) {
             Log::warning("FetchBookMetadataJob: No data found in Open Library for ISBN {$isbn}");
+
             return;
         }
 
         $metadata = $data[$bookKey];
         $updates = [];
 
-        if (empty($this->book->title) && !empty($metadata['title'])) {
+        if (empty($this->book->title) && ! empty($metadata['title'])) {
             $updates['title'] = $metadata['title'];
         }
 
-        if (empty($this->book->authors_display) && !empty($metadata['authors'])) {
+        if (empty($this->book->authors_display) && ! empty($metadata['authors'])) {
             $updates['authors_display'] = collect($metadata['authors'])->pluck('name')->implode(', ');
         }
 
-        if (empty($this->book->publisher) && !empty($metadata['publishers'])) {
+        if (empty($this->book->publisher) && ! empty($metadata['publishers'])) {
             $updates['publisher'] = collect($metadata['publishers'])->pluck('name')->first();
         }
 
-        if (empty($this->book->page_count) && !empty($metadata['number_of_pages'])) {
+        if (empty($this->book->page_count) && ! empty($metadata['number_of_pages'])) {
             $updates['page_count'] = $metadata['number_of_pages'];
         }
 
-        if (empty($this->book->subtitle) && !empty($metadata['subtitle'])) {
+        if (empty($this->book->subtitle) && ! empty($metadata['subtitle'])) {
             $updates['subtitle'] = $metadata['subtitle'];
         }
 
-        if (!empty($updates)) {
+        if (! empty($updates)) {
             $this->book->update($updates);
             Log::info("FetchBookMetadataJob: Updated book {$this->book->id} with metadata from Open Library");
         }
@@ -106,6 +139,7 @@ class FetchBookMetadataJob implements ShouldQueue
 
         if ($response->failed()) {
             Log::error("FetchBookMetadataJob: ISBN Search request failed for ISBN {$isbn}");
+
             return;
         }
 
@@ -124,7 +158,7 @@ class FetchBookMetadataJob implements ShouldQueue
             $updates['publisher'] = trim($matches[1]);
         }
 
-        if (!empty($updates)) {
+        if (! empty($updates)) {
             $this->book->update($updates);
             Log::info("FetchBookMetadataJob: Updated book {$this->book->id} with metadata from ISBN Search");
         }
@@ -132,32 +166,33 @@ class FetchBookMetadataJob implements ShouldQueue
 
     protected function fetchFromSearxNG(): void
     {
-        $query = ($this->book->isbn13 ? "ISBN " . $this->book->isbn13 : "") . " " . $this->book->title . " " . $this->book->authors_display;
+        $query = ($this->book->isbn13 ? 'ISBN '.$this->book->isbn13 : '').' '.$this->book->title.' '.$this->book->authors_display;
         $query = trim($query);
-        
+
         Log::info("FetchBookMetadataJob: Searching SearxNG for: {$query}");
 
         $response = Http::timeout(20)
-            ->get("http://searxng:8080/search", [
+            ->get('http://searxng:8080/search', [
                 'q' => $query,
                 'format' => 'json',
             ]);
 
         if ($response->failed()) {
             Log::error("FetchBookMetadataJob: SearxNG search failed (Status: {$response->status()}) for query: {$query}");
+
             return;
         }
 
         $data = $response->json();
         $results = $data['results'] ?? [];
-        
-        Log::info("FetchBookMetadataJob: SearxNG returned " . count($results) . " results");
 
-        $combinedText = "";
+        Log::info('FetchBookMetadataJob: SearxNG returned '.count($results).' results');
+
+        $combinedText = '';
         foreach ($results as $result) {
-            $combinedText .= ($result['title'] ?? '') . " " . ($result['content'] ?? '') . " ";
+            $combinedText .= ($result['title'] ?? '').' '.($result['content'] ?? '').' ';
         }
-        
+
         // Clean up combined text for easier regex matching
         $combinedText = str_replace(['-', ' '], '', $combinedText);
 
@@ -167,13 +202,14 @@ class FetchBookMetadataJob implements ShouldQueue
                 $foundIsbn = $matches[0];
                 Log::info("FetchBookMetadataJob: Discovered ISBN {$foundIsbn} via SearxNG");
                 $this->book->update(['isbn13' => $foundIsbn]);
-                
+
                 // Now that we have an ISBN, try structured fetching immediately
                 $this->fetchFromOpenLibrary($foundIsbn);
+
                 return;
             }
         }
 
-        Log::info("FetchBookMetadataJob: No actionable ISBN found in SearxNG results snippets.");
+        Log::info('FetchBookMetadataJob: No actionable ISBN found in SearxNG results snippets.');
     }
 }

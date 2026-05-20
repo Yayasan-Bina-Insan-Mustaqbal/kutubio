@@ -17,6 +17,7 @@ class DatabaseSeeder extends Seeder
         $this->call([
             CategorySeeder::class,
             GeneralSettingSeeder::class,
+            PrintProfileSeeder::class,
         ]);
 
         // User::factory(10)->create();
@@ -26,7 +27,7 @@ class DatabaseSeeder extends Seeder
             [
                 'name' => 'Kutubio Admin',
                 'email_verified_at' => now(),
-                'password' => Hash::make('password'),
+                'password' => Hash::make(config('app.default_admin_password')),
             ],
         );
     }

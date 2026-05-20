@@ -57,6 +57,10 @@ class CaptureBook extends Page
 
     public int $quantity = 1;
 
+    public string $fundingSource = 'self';
+
+    public string $purchaseYear = 'Old Collection';
+
     public ?string $bookTitle = null;
 
     public ?string $bookAuthors = null;
@@ -158,6 +162,8 @@ class CaptureBook extends Page
             'frontOcrText' => ['nullable', 'string', 'max:5000'],
             'frontOcrConfidence' => ['nullable', 'numeric', 'min:0', 'max:1'],
             'quantity' => ['required', 'integer', 'min:1'],
+            'fundingSource' => ['required', 'string', 'in:self,BOS'],
+            'purchaseYear' => ['required', 'string', 'in:Old Collection,2023,2024,2025,2026,2027,2028,2029,20230'],
             'bookTitle' => ['nullable', 'string', 'max:255'],
             'bookAuthors' => ['nullable', 'string', 'max:500'],
         ];
@@ -233,6 +239,8 @@ class CaptureBook extends Page
                     'front_image_path' => $frontImage['path'],
                     'isbn_barcode_value' => $this->isbnBarcodeValue,
                     'quantity' => $this->quantity,
+                    'funding_source' => $this->fundingSource,
+                    'purchase_year' => $this->purchaseYear,
                     'notes' => 'Raw browser camera capture submitted for review.',
                 ],
                 'source_meta' => [

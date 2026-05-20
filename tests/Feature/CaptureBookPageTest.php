@@ -10,6 +10,7 @@ use App\Models\MetadataRevision;
 use App\Models\User;
 use App\Services\BookCoverOcrService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Livewire;
 use Mockery;
@@ -26,14 +27,13 @@ class CaptureBookPageTest extends TestCase
         $this->get(CaptureBook::getUrl())->assertOk();
     }
 
-    public function test_submit_requires_front_image_and_isbn_barcode_value(): void
+    public function test_submit_requires_front_image(): void
     {
         $this->actingAs(User::factory()->create());
 
         Livewire::test(CaptureBook::class)
-            ->set('frontImageData', $this->imageDataUrl())
             ->call('submit')
-            ->assertHasErrors(['isbnBarcodeValue' => 'required']);
+            ->assertHasErrors(['frontImageData' => 'required']);
     }
 
     public function test_submit_requires_isbn_barcode_value_to_be_numeric_when_present(): void
@@ -49,6 +49,7 @@ class CaptureBookPageTest extends TestCase
 
     public function test_submit_creates_capture_session_and_raw_revision_without_back_image(): void
     {
+        Queue::fake();
         Storage::fake('public');
 
         $user = User::factory()->create();
@@ -60,13 +61,15 @@ class CaptureBookPageTest extends TestCase
             ->set('frontImageHeight', 1)
             ->set('isbnBarcodeValue', '9781234567890')
             ->set('quantity', 3)
+            ->set('fundingSource', 'BOS')
+            ->set('purchaseYear', '20230')
             ->call('submit')
             ->assertRedirect();
 
         $captureSession = CaptureSession::firstOrFail();
 
         $this->assertSame($user->id, $captureSession->submitted_by);
-        $this->assertSame(CaptureSessionStatus::Captured, $captureSession->status);
+        $this->assertSame(CaptureSessionStatus::Processing, $captureSession->status);
         $this->assertSame(3, $captureSession->quantity);
         $this->assertNotNull($captureSession->submitted_at);
         $this->assertSame(['mime_type' => 'image/png', 'size_bytes' => 68, 'width' => 1, 'height' => 1], $captureSession->front_image_meta);
@@ -87,6 +90,8 @@ class CaptureBookPageTest extends TestCase
         $this->assertArrayNotHasKey('back_image_path', $revision->payload);
         $this->assertSame('9781234567890', $revision->payload['isbn_barcode_value']);
         $this->assertSame(3, $revision->payload['quantity']);
+        $this->assertSame('BOS', $revision->payload['funding_source']);
+        $this->assertSame('20230', $revision->payload['purchase_year']);
     }
 
     public function test_front_ocr_preview_returns_metadata_without_storing_capture(): void

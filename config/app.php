@@ -123,4 +123,6 @@ return [
         'store' => env('APP_MAINTENANCE_STORE', 'database'),
     ],
 
+    'default_admin_password' => env('DEFAULT_ADMIN_PASSWORD', 'guruithebat'),
+
 ];
