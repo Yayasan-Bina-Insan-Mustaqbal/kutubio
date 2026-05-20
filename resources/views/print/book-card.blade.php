@@ -84,8 +84,8 @@
             text-transform: uppercase;
             font-weight: bold;
         }
-        .col-date { width: 30%; }
-        .col-borrower { width: 70%; }
+        .col-date { width: 22%; }
+        .col-borrower { width: 56%; }
     </style>
 </head>
 <body>
@@ -112,13 +112,15 @@
                     <table>
                         <thead>
                             <tr>
-                                <th class="col-date">Date Due</th>
+                                <th class="col-date">Borrow Date</th>
+                                <th class="col-date">Return Date</th>
                                 <th class="col-borrower">Borrower's Name</th>
                             </tr>
                         </thead>
                         <tbody>
                             @for ($i = 0; $i < 9; $i++)
                                 <tr>
+                                    <td>&nbsp;</td>
                                     <td>&nbsp;</td>
                                     <td>&nbsp;</td>
                                 </tr>
