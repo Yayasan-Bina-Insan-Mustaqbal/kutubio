@@ -55,6 +55,42 @@ class PersistCaptureSessionJob implements ShouldQueue
             }
         }
 
+        // Fallback to authors from other revisions
+        if (empty($visionData['authors'])) {
+            $anyAuthors = $this->captureSession->metadataRevisions()
+                ->whereNotNull('payload->authors')
+                ->latest()
+                ->first()?->payload['authors'] ?? null;
+
+            if ($anyAuthors) {
+                $visionData['authors'] = $anyAuthors;
+            }
+        }
+
+        // Fallback to publisher from other revisions
+        if (empty($visionData['publisher'])) {
+            $anyPublisher = $this->captureSession->metadataRevisions()
+                ->whereNotNull('payload->publisher')
+                ->latest()
+                ->first()?->payload['publisher'] ?? null;
+
+            if ($anyPublisher) {
+                $visionData['publisher'] = $anyPublisher;
+            }
+        }
+
+        // Fallback to subtitle from other revisions
+        if (empty($visionData['subtitle'])) {
+            $anySubtitle = $this->captureSession->metadataRevisions()
+                ->whereNotNull('payload->subtitle')
+                ->latest()
+                ->first()?->payload['subtitle'] ?? null;
+
+            if ($anySubtitle) {
+                $visionData['subtitle'] = $anySubtitle;
+            }
+        }
+
         $qrData = $this->captureSession->metadataRevisions()
             ->where('source_stage', 'qr_reading')
             ->latest()
