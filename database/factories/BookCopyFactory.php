@@ -23,8 +23,6 @@ class BookCopyFactory extends Factory
             'book_id' => Book::factory(),
             'tracking_code' => fake()->optional()->bothify('LIB-####'),
             'status' => fake()->randomElement(BookCopyStatus::cases()),
-            'funding_source' => fake()->randomElement(['self', 'BOSP']),
-            'purchase_year' => fake()->randomElement(['Old Collection', '2023', '2024', '2025', '2026']),
             'location_note' => fake()->optional()->sentence(),
             'acquired_at' => fake()->optional()->dateTimeBetween('-5 years'),
         ];

@@ -79,6 +79,6 @@ COPY docker/sail/8.5/entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN chmod +x /usr/local/bin/entrypoint.sh
 ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
 
-EXPOSE 80
+EXPOSE 9000
 
-CMD ["php", "artisan", "serve", "--host=0.0.0.0", "--port=80"]
+CMD ["php-fpm", "-y", "/etc/php-fpm.conf", "--nodaemonize"]

@@ -35,6 +35,7 @@
             width: {{ $profile->slot_width_mm }}mm;
             height: {{ $profile->slot_height_mm }}mm;
             border: 0.1mm dashed #eee;
+            /* Light boundary for alignment debug */
             box-sizing: border-box;
             display: flex;
             align-items: center;
@@ -57,12 +58,6 @@
             flex: 1;
             font-size: 7pt;
             line-height: 1.1;
-        }
-
-        .author-code {
-            font-family: monospace;
-            font-weight: bold;
-            margin-bottom: 1mm;
         }
 
         .title {
@@ -94,21 +89,11 @@
             @endfor
 
             @foreach ($items as $item)
-                @php
-                    $authorText = trim((string) ($item->book->authors_display ?? $item->book->authors ?? ''));
-                    $authorCode = collect(preg_split('/\s+/', $authorText, -1, PREG_SPLIT_NO_EMPTY))
-                        ->take(2)
-                        ->map(fn (string $word): string => mb_strtoupper(mb_substr($word, 0, 3)))
-                        ->implode(' ');
-                @endphp
                 <div class="slot">
                     <div class="qr">
                         {!! \SimpleSoftwareIO\QrCode\Facades\QrCode::size(100)->format('svg')->generate($item->qr_payload ?? $item->public_id) !!}
                     </div>
                     <div class="meta">
-                        @if ($authorCode !== '')
-                            <div class="author-code">{{ $authorCode }}</div>
-                        @endif
                         <div class="title">{{ $item->book->title ?? $item->name ?? 'Untitled' }}</div>
                         <div class="call-number"
                             style="background: {{ $item->book->category->theme_bg_color ?? '#f0f0f0' }}; color: {{ $item->book->category->theme_text_color ?? '#333' }};">

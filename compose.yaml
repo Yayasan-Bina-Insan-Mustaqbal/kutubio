@@ -1,8 +1,8 @@
 services:
     laravel.test:
         build:
-            context: .
-            dockerfile: docker/sail/8.5/Dockerfile
+            context: ./docker/sail/8.5
+            dockerfile: Dockerfile
             args:
                 WWWGROUP: '${WWWGROUP}'
         image: sail-8.5/app
@@ -26,8 +26,8 @@ services:
             - redis
     worker:
         build:
-            context: .
-            dockerfile: docker/sail/8.5/Dockerfile
+            context: ./docker/sail/8.5
+            dockerfile: Dockerfile
             args:
                 WWWGROUP: '${WWWGROUP}'
         image: sail-8.5/app

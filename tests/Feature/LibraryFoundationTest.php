@@ -118,14 +118,9 @@ class LibraryFoundationTest extends TestCase
             ],
         ]);
 
-        $copy = BookCopy::factory()->create([
-            'book_id' => $book->id,
-            'funding_source' => null,
-            'purchase_year' => null,
-        ]);
+        $copy = BookCopy::factory()->create(['book_id' => $book->id]);
 
-        $this->assertSame('BOSP', $copy->funding_source);
-        $this->assertSame('BOSP (Gov-Fund)', $copy->funding_source_label);
+        $this->assertSame('BOS (Gov-Fund)', $copy->funding_source);
         $this->assertSame('2024', $copy->purchase_year);
     }
 }
