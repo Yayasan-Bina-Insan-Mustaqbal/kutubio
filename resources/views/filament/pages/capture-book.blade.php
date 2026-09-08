@@ -36,6 +36,25 @@
                         </div>
                     </div>
 
+                    <!-- Camera Error / Fallback Overlay -->
+                    <div id="cameraErrorBox" class="hidden absolute inset-0 z-10 bg-gray-900/95 p-6 flex flex-col items-center justify-center text-center">
+                        <div class="w-14 h-14 rounded-full bg-danger-500/10 border border-danger-500/20 flex items-center justify-center mb-4">
+                            <x-heroicon-m-exclamation-triangle class="h-7 w-7 text-danger-400" />
+                        </div>
+                        <p id="cameraErrorText" class="text-sm font-bold text-white mb-1">Camera Error</p>
+                        <p id="cameraErrorDetail" class="text-xs text-gray-400 max-w-[260px] leading-relaxed mb-5"></p>
+                        <div class="flex flex-col gap-2 w-full max-w-[240px]">
+                            <button type="button" onclick="window.location.reload()" class="inline-flex items-center justify-center gap-2 rounded-xl bg-white/10 border border-white/10 px-4 py-2.5 text-xs font-bold text-white hover:bg-white/20 transition-colors">
+                                <x-heroicon-m-arrow-path class="h-4 w-4" />
+                                Retry Camera
+                            </button>
+                            <a href="{{ \App\Filament\Resources\Books\BookResource::getUrl('create') }}" class="inline-flex items-center justify-center gap-2 rounded-xl bg-primary-600 px-4 py-2.5 text-xs font-bold text-white shadow-lg shadow-primary-500/20 hover:bg-primary-500 transition-colors">
+                                <x-heroicon-m-plus-circle class="h-4 w-4" />
+                                Create Book Manually
+                            </a>
+                        </div>
+                    </div>
+
                     <!-- Stability Progress Bar -->
                     <div id="stabilityContainer" class="absolute inset-x-12 top-1/2 -translate-y-1/2 hidden flex-col items-center gap-3">
                         <div class="w-full h-1.5 bg-black/40 rounded-full overflow-hidden backdrop-blur-md border border-white/10">
@@ -245,7 +264,7 @@
                     </label>
                     
                     <div class="grid grid-cols-3 gap-2">
-                        <template x-for="year in ['Old Collection', '2023', '2024', '2025', '2026', '2027', '2028', '2029', '20230']" :key="year">
+                        <template x-for="year in ['Old Collection', '2023', '2024', '2025', '2026', '2027', '2028', '2029', '2030']" :key="year">
                             <button type="button"
                                     @click="selectedYear = year"
                                     class="rounded-xl border py-2.5 text-center text-xs font-bold transition-all duration-200"
@@ -357,12 +376,10 @@
         });
 
         (function() {
-            if (window.kutubioCapturePageInitialized) return;
-            window.kutubioCapturePageInitialized = true;
-
             const video = document.getElementById('captureVideo');
             const barcodeScanner = document.getElementById('barcodeScanner');
             const mathCanvas = document.getElementById('mathCanvas');
+            if (!video || !barcodeScanner || !mathCanvas) return;
             const mathContext = mathCanvas.getContext('2d', { willReadFrequently: true });
             const snapshotCanvas = document.getElementById('snapshotCanvas');
             const statusIndicator = document.getElementById('statusIndicator');
@@ -384,6 +401,8 @@
             let activeSide = 'front';
             let quaggaStarted = false;
             let currentFacingMode = 'environment';
+            let cameraRequestId = 0;
+            let isNavigating = false;
 
             const motionThresholdHigh = 22;
             const motionThresholdLow = 8;
@@ -473,7 +492,13 @@
                     locate: true,
                     frequency: 10,
                 }, (error) => {
-                    if (error) { console.error(error); return; }
+                    if (error) {
+                        console.error('ISBN scanner error:', error);
+                        barcodeScanner.classList.add('hidden');
+                        video.classList.remove('hidden');
+                        startCamera(currentFacingMode);
+                        return;
+                    }
                     Quagga.start();
                     quaggaStarted = true;
                     Quagga.onDetected(handleBarcodeDetected);
@@ -484,13 +509,16 @@
                 updateStatus('CAPTURING');
                 stabilityContainer.classList.add('hidden');
                 
-                const width = video.videoWidth;
-                const height = video.videoHeight;
+                // Downscale to 640px width to keep the AI payload small and fast.
+                const rawWidth = video.videoWidth;
+                const rawHeight = video.videoHeight;
+                const width = Math.min(rawWidth, 640);
+                const height = Math.round(rawHeight * (width / rawWidth));
                 snapshotCanvas.width = width;
                 snapshotCanvas.height = height;
                 snapshotCanvas.getContext('2d').drawImage(video, 0, 0, width, height);
                 
-                const dataUrl = snapshotCanvas.toDataURL('image/jpeg', 0.85);
+                const dataUrl = snapshotCanvas.toDataURL('image/jpeg', 0.7);
 
                 if (side === 'front') {
                     @this.set('frontImageData', dataUrl);
@@ -503,8 +531,9 @@
             };
 
             window.refreshActions = () => {
-                const hasFront = @this.get('frontImageData');
-                const hasTitle = @this.get('bookTitle');
+                // Use synchronous property access; @this.get() returns a Promise in Livewire 3/4.
+                const hasFront = @this.frontImageData;
+                const hasTitle = @this.bookTitle;
                 const isReady = !!(hasFront && hasTitle);
 
                 // Note: submitBtn is now also handled by Alpine x-bind:disabled
@@ -554,7 +583,8 @@
 
                         if (stableFrames >= FRAMES_TO_STABILIZE) {
                             state = 'CAPTURED';
-                            if (!@this.get('frontImageData')) captureSide('front');
+                            // Synchronous access; @this.get() returns a Promise and would never trigger capture.
+                            if (!@this.frontImageData) captureSide('front');
                         }
                     }
                 }
@@ -563,20 +593,66 @@
             };
 
             const startCamera = async (facingMode = 'environment') => {
+                const requestId = ++cameraRequestId;
+                stopMotionLoop();
                 stopCameraStream();
+                video.onloadedmetadata = null;
                 try {
-                    stream = await navigator.mediaDevices.getUserMedia({
+                    if (!navigator.mediaDevices?.getUserMedia) {
+                        const protocol = window.location.protocol;
+                        const host = window.location.hostname;
+                        throw new Error(`Camera API unavailable on ${protocol}//${host}. Open this page via HTTPS or localhost.`);
+                    }
+
+                    const nextStream = await navigator.mediaDevices.getUserMedia({
                         video: { facingMode, width: { ideal: 1280 }, height: { ideal: 960 } },
                     });
+                    if (requestId !== cameraRequestId || isNavigating) {
+                        nextStream.getTracks().forEach(track => track.stop());
+                        return;
+                    }
+
+                    stream = nextStream;
                     video.srcObject = stream;
-                    video.onloadedmetadata = () => {
-                        mathCanvas.width = 160; mathCanvas.height = 120;
-                        updateStatus('IDLE');
-                        loopId = requestAnimationFrame(updateStability);
+                    video.onloadedmetadata = async () => {
+                        try {
+                            await video.play();
+                            if (!video.videoWidth || !video.videoHeight) throw new Error('Camera returned no video frames.');
+                            document.getElementById('cameraErrorBox')?.classList.add('hidden');
+                            mathCanvas.width = 160; mathCanvas.height = 120;
+                            updateStatus('IDLE');
+                            loopId = requestAnimationFrame(updateStability);
+                        } catch (error) {
+                            console.error('Camera playback error:', error);
+                            stopCameraStream();
+                            updateStatus('IDLE');
+                        }
                     };
                 } catch (err) {
-                    console.error(err);
-                    statusIndicator.querySelector('span').innerText = "CAMERA ERROR";
+                    console.error('Camera error:', err);
+                    const label = statusIndicator.querySelector('span');
+                    if (label) label.innerText = "CAMERA ERROR";
+
+                    const errorBox = document.getElementById('cameraErrorBox');
+                    const errorText = document.getElementById('cameraErrorText');
+                    const errorDetail = document.getElementById('cameraErrorDetail');
+
+                    if (errorBox) errorBox.classList.remove('hidden');
+                    if (errorText) errorText.innerText = 'Camera Unavailable';
+
+                    if (errorDetail) {
+                        let message = err?.message || String(err || 'Unknown error');
+                        if (err?.name === 'NotAllowedError') {
+                            message = 'Camera permission was denied. Allow camera access in your browser settings and retry.';
+                        } else if (err?.name === 'NotFoundError') {
+                            message = 'No camera was detected on this device. You can still create a book manually.';
+                        } else if (err?.name === 'NotReadableError') {
+                            message = 'The camera is already in use by another application. Close it and retry.';
+                        } else if (err?.name === 'SecurityError' || message.toLowerCase().includes('insecure context')) {
+                            message = 'This page must be served over HTTPS (or localhost) for camera access. Use an HTTPS/Tailscale URL or SSH tunnel to localhost.';
+                        }
+                        errorDetail.innerText = message;
+                    }
                 }
             };
 
@@ -600,7 +676,13 @@
             startCamera();
 
             document.addEventListener('livewire:navigating', () => {
+                isNavigating = true;
+                cameraRequestId++;
                 stopMotionLoop(); stopCameraStream(); stopBarcodeScanner();
+            });
+
+            document.addEventListener('livewire:navigated', () => {
+                isNavigating = false;
             });
 
             window.addEventListener('capture-reset', () => {

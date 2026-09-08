@@ -25,7 +25,7 @@ class BorrowerForm
                     ->visible(fn ($get) => $get('type') === BorrowerType::Student->value)
                     ->placeholder('e.g. 10-A'),
                 TextInput::make('identifier')
-                    ->label(fn (string $operation, ?array $state, $get) => match ($get('type')) {
+                    ->label(fn (string $operation, string $state, $get): string => match ($get('type')) {
                         BorrowerType::Student->value => 'Student ID (NIS)',
                         BorrowerType::Teacher->value => 'Teacher ID (NIP)',
                         default => 'Identifier',

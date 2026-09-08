@@ -160,8 +160,10 @@
             let stream = null;
             let detector = null;
             let loopId = null;
-            let currentFacingMode = 'environment';
-            let isScanning = true;
+             let currentFacingMode = 'environment';
+             let isScanning = true;
+             let cameraRequestId = 0;
+             let isNavigating = false;
 
             window.addEventListener('scanner-reset', () => {
                 console.log('JS: Scanner reset triggered');
@@ -171,33 +173,53 @@
 
             async function initDetector() {
                 try {
-                    const check = () => window.BarcodeDetector ? true : false;
-                    if (!check()) {
-                        await new Promise(resolve => {
-                            const interval = setInterval(() => {
-                                if (check()) { clearInterval(interval); resolve(); }
-                            }, 50);
-                        });
+                    if (!window.BarcodeDetector) {
+                        throw new Error('BarcodeDetector ponyfill is unavailable.');
                     }
+
                     const formats = await window.BarcodeDetector.getSupportedFormats();
-                    if (formats.includes('qr_code')) {
-                        detector = new window.BarcodeDetector({ formats: ['qr_code'] });
-                        return true;
+                    if (!formats.includes('qr_code')) {
+                        throw new Error('QR code detection is not supported by this browser.');
                     }
+
+                    detector = new window.BarcodeDetector({ formats: ['qr_code'] });
+                    return true;
+                } catch (error) {
+                    console.error('QR detector initialization error:', error);
                     return false;
-                } catch (e) { return false; }
+                }
             }
 
-            async function startCamera(facingMode = 'environment') {
-                if (stream) { stream.getTracks().forEach(track => track.stop()); }
-                try {
-                    stream = await navigator.mediaDevices.getUserMedia({
-                        video: { facingMode, width: { ideal: 1280 }, height: { ideal: 720 } },
-                        audio: false
-                    });
-                    video.srcObject = stream;
-                    currentFacingMode = facingMode;
-                    video.onloadedmetadata = () => {
+             async function startCamera(facingMode = 'environment') {
+                 const requestId = ++cameraRequestId;
+                 if (stream) { stream.getTracks().forEach(track => track.stop()); }
+                 stream = null;
+                 try {
+                    if (!navigator.mediaDevices?.getUserMedia) {
+                        const protocol = window.location.protocol;
+                        const host = window.location.hostname;
+                        throw new Error(`Camera API unavailable on ${protocol}//${host}. Open this page via HTTPS or localhost.`);
+                    }
+                     stream = await navigator.mediaDevices.getUserMedia({
+                         video: { facingMode, width: { ideal: 1280 }, height: { ideal: 720 } },
+                         audio: false
+                     });
+                    if (requestId !== cameraRequestId || isNavigating) {
+                        stream.getTracks().forEach(track => track.stop());
+                        stream = null;
+                        return;
+                    }
+                     video.srcObject = stream;
+                     currentFacingMode = facingMode;
+                    video.onloadedmetadata = async () => {
+                        try {
+                            await video.play();
+                            if (!video.videoWidth || !video.videoHeight) throw new Error('Camera returned no video frames.');
+                        } catch (error) {
+                            console.error('QR camera playback error:', error);
+                            statusText.textContent = 'Camera Playback Error';
+                            return;
+                        }
                         statusDot.classList.replace('bg-yellow-500', 'bg-green-500');
                         statusDot.classList.add('shadow-[0_0_10px_rgba(34,197,94,0.5)]');
                         statusText.textContent = 'Scanner Active';
@@ -205,11 +227,12 @@
                         if (loopId) cancelAnimationFrame(loopId);
                         loopId = requestAnimationFrame(scanFrame);
                     };
-                } catch (err) {
+                 } catch (err) {
+                    console.error('QR camera error:', err);
                     statusDot.classList.replace('bg-yellow-500', 'bg-red-500');
-                    statusText.textContent = 'Camera Error';
-                }
-            }
+                    statusText.textContent = err?.name === 'NotAllowedError' ? 'Camera Permission Denied' : 'Camera Error';
+                 }
+             }
 
             async function scanFrame() {
                 if (!isScanning || !detector || video.readyState !== video.HAVE_ENOUGH_DATA) {
@@ -247,18 +270,30 @@
             });
 
             initDetector().then(ready => {
-                if (ready) startCamera(currentFacingMode);
-                else {
-                    statusText.textContent = 'Unsupported Browser';
+                if (!ready) {
+                    statusText.textContent = 'QR Detector Unavailable';
                     statusDot.classList.replace('bg-yellow-500', 'bg-red-500');
+                    return;
                 }
+
+                startCamera(currentFacingMode);
+            }).catch(error => {
+                console.error('QR scanner initialization error:', error);
+                statusText.textContent = 'Scanner Initialization Error';
+                statusDot.classList.replace('bg-yellow-500', 'bg-red-500');
             });
 
-            document.addEventListener('livewire:navigating', () => {
-                isScanning = false;
-                if (loopId) cancelAnimationFrame(loopId);
-                if (stream) stream.getTracks().forEach(track => track.stop());
-            });
+             document.addEventListener('livewire:navigating', () => {
+                 isNavigating = true;
+                 cameraRequestId++;
+                 isScanning = false;
+                 if (loopId) cancelAnimationFrame(loopId);
+                 if (stream) stream.getTracks().forEach(track => track.stop());
+                 stream = null;
+             });
+             document.addEventListener('livewire:navigated', () => {
+                 isNavigating = false;
+             });
         })();
     </script>
 </x-filament-panels::page>

@@ -42,7 +42,9 @@ class OllamaService
     {
         Log::info("OllamaService: Requesting extraction with model {$this->model}");
 
-        $response = Http::timeout(60)->post("{$this->baseUrl}/api/generate", [
+        $startedAt = microtime(true);
+
+        $response = Http::timeout(180)->post("{$this->baseUrl}/api/generate", [
             'model' => $this->model,
             'prompt' => $prompt,
             'images' => [base64_encode($imageBytes)],
@@ -50,13 +52,15 @@ class OllamaService
             'format' => 'json',
         ]);
 
+        $duration = round(microtime(true) - $startedAt, 2);
+
         if ($response->failed()) {
-            Log::error('OllamaService: Request failed: '.$response->body());
+            Log::error("OllamaService: Request failed after {$duration}s: ".$response->body());
             throw new Exception('Ollama API request failed: '.$response->body());
         }
 
         $result = $response->json();
-        Log::info('OllamaService: Received response: '.($result['response'] ?? 'EMPTY'));
+        Log::info("OllamaService: Received response in {$duration}s: ".($result['response'] ?? 'EMPTY'));
 
         return $result;
     }
@@ -85,7 +89,7 @@ Standard DDC main classes:
 
 Respond ONLY with a JSON object containing a single field 'category_code' (a 3-digit string representing the most appropriate main class, e.g., '200' or '600'). Do not write any other explanation.";
 
-            $response = Http::timeout(30)->post("{$this->baseUrl}/api/generate", [
+            $response = Http::timeout(180)->post("{$this->baseUrl}/api/generate", [
                 'model' => config('services.ollama.llm_model', 'llama3.1:latest'),
                 'prompt' => $prompt,
                 'stream' => false,

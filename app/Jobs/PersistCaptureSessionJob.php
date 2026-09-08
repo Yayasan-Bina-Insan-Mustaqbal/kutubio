@@ -155,10 +155,20 @@ class PersistCaptureSessionJob implements ShouldQueue
             }
 
             // 2. Create Book Copies based on quantity
+            $capturePayload = $this->captureSession->metadataRevisions()
+                ->where('source_stage', 'capture_page')
+                ->latest()
+                ->first()?->payload ?? [];
+
+            $fundingSource = $capturePayload['funding_source'] ?? 'self';
+            $purchaseYear = $capturePayload['purchase_year'] ?? 'Old Collection';
+
             for ($i = 0; $i < $this->captureSession->quantity; $i++) {
                 BookCopy::create([
                     'book_id' => $book->id,
                     'status' => BookCopyStatus::Draft,
+                    'funding_source' => $fundingSource,
+                    'purchase_year' => $purchaseYear,
                     'acquired_at' => now(),
                 ]);
             }
