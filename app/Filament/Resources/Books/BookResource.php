@@ -110,32 +110,11 @@ class BookResource extends Resource
                             ->numeric()
                             ->default(1)
                             ->required(),
-                        Select::make('status')
-                            ->options(BookCopyStatus::class)
-                            ->default(BookCopyStatus::Draft)
-                            ->required(),
-                        Select::make('funding_source')
-                            ->label('Funding Source')
-                            ->options([
-                                'self' => 'Self-Fund',
-                                'BOSP' => 'BOSP (Gov-Fund)',
-                            ])
-                            ->default('self')
-                            ->required(),
-                        Select::make('purchase_year')
-                            ->label('Year of Purchase')
-                            ->options([
-                                'Old Collection' => 'Old Collection',
-                            ] + collect(range(2023, 2030))->mapWithKeys(fn (int $year): array => [(string) $year => (string) $year])->all())
-                            ->default('Old Collection')
-                            ->required(),
                     ])
                     ->action(function (Book $record, array $data) {
                         for ($i = 0; $i < $data['quantity']; $i++) {
                             $record->copies()->create([
-                                'status' => $data['status'],
-                                'funding_source' => $data['funding_source'],
-                                'purchase_year' => $data['purchase_year'],
+                                'status' => BookCopyStatus::Draft,
                                 'acquired_at' => now(),
                             ]);
                         }

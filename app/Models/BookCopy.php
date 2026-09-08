@@ -11,7 +11,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Str;
 
-#[Fillable(['book_id', 'tracking_code', 'qr_payload', 'status', 'funding_source', 'purchase_year', 'location_note', 'acquired_at', 'deletion_reason'])]
+#[Fillable(['book_id', 'tracking_code', 'qr_payload', 'status', 'location_note', 'acquired_at', 'deletion_reason'])]
 class BookCopy extends Model
 {
     /** @use HasFactory<BookCopyFactory> */
@@ -19,8 +19,6 @@ class BookCopy extends Model
 
     protected $attributes = [
         'status' => BookCopyStatus::Draft->value,
-        'funding_source' => 'self',
-        'purchase_year' => 'Old Collection',
     ];
 
     protected static function booted(): void
@@ -40,20 +38,12 @@ class BookCopy extends Model
     }
 
     /**
-     * Get the funding source of the book copy.
-     *
-     * Prefers the column value; falls back to the capture metadata for legacy copies.
+     * Get the funding source of the book copy from the capture metadata.
      */
     public function getFundingSourceAttribute(): string
     {
-        if (filled($this->attributes['funding_source'] ?? null)) {
-            return $this->attributes['funding_source'] === 'BOS'
-                ? 'BOSP'
-                : $this->attributes['funding_source'];
-        }
-
         if (! $this->book_id) {
-            return 'self';
+            return 'Self-Fund';
         }
 
         $revision = $this->book->metadataRevisions()
@@ -63,25 +53,14 @@ class BookCopy extends Model
 
         $source = $revision?->payload['funding_source'] ?? 'self';
 
-        return $source === 'BOS' ? 'BOSP' : $source;
-    }
-
-    public function getFundingSourceLabelAttribute(): string
-    {
-        return $this->funding_source === 'BOSP' ? 'BOSP (Gov-Fund)' : 'Self-Fund';
+        return $source === 'BOSP' || $source === 'BOS' ? 'BOSP (Gov-Fund)' : 'Self-Fund';
     }
 
     /**
-     * Get the purchase year of the book copy.
-     *
-     * Prefers the column value; falls back to the capture metadata for legacy copies.
+     * Get the purchase year of the book copy from the capture metadata.
      */
     public function getPurchaseYearAttribute(): string
     {
-        if (filled($this->attributes['purchase_year'] ?? null)) {
-            return $this->attributes['purchase_year'];
-        }
-
         if (! $this->book_id) {
             return 'Old Collection';
         }

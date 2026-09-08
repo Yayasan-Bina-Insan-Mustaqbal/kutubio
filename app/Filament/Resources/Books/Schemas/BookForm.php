@@ -2,7 +2,6 @@
 
 namespace App\Filament\Resources\Books\Schemas;
 
-use App\Enums\BookCopyStatus;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
@@ -58,29 +57,6 @@ class BookForm
                             ->helperText('Enter the number of additional copies to create. This will not delete existing ones.')
                             ->numeric()
                             ->default(0)
-                            ->dehydrated(false)
-                            ->visible(fn ($livewire) => $livewire instanceof \Filament\Resources\Pages\EditRecord),
-                        Select::make('add_copies_status')
-                            ->label('Copies Status')
-                            ->options(BookCopyStatus::class)
-                            ->default(BookCopyStatus::Draft)
-                            ->dehydrated(false)
-                            ->visible(fn ($livewire) => $livewire instanceof \Filament\Resources\Pages\EditRecord),
-                        Select::make('add_copies_funding_source')
-                            ->label('Copies Funding Source')
-                            ->options([
-                                'self' => 'Self-Fund',
-                                'BOSP' => 'BOSP (Gov-Fund)',
-                            ])
-                            ->default('self')
-                            ->dehydrated(false)
-                            ->visible(fn ($livewire) => $livewire instanceof \Filament\Resources\Pages\EditRecord),
-                        Select::make('add_copies_purchase_year')
-                            ->label('Copies Year of Purchase')
-                            ->options([
-                                'Old Collection' => 'Old Collection',
-                            ] + collect(range(2023, 2030))->mapWithKeys(fn (int $year): array => [(string) $year => (string) $year])->all())
-                            ->default('Old Collection')
                             ->dehydrated(false)
                             ->visible(fn ($livewire) => $livewire instanceof \Filament\Resources\Pages\EditRecord),
                     ])
