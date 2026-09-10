@@ -39,6 +39,7 @@
                     <div class="meta">
                         <div class="call-number" style="background: {{ $item->book->category->theme_bg_color ?? '#f0f0f0' }}; color: {{ $item->book->category->theme_text_color ?? '#333' }};">
                             {{ $item->book->category->code ?? 'GEN' }}
+                            {{ \Illuminate\Support\Str::limit($item->book->category->label ?? 'General', 14) }}
                         </div>
                         @if ($authorCode !== '')
                             <div class="author-code">{{ $authorCode }}</div>
