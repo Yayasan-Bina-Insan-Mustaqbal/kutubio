@@ -35,6 +35,20 @@ class LibraryFoundationTest extends TestCase
         $this->assertCount(2, $book->fresh()->copies);
     }
 
+    public function test_soft_deleting_book_soft_deletes_its_copies(): void
+    {
+        $book = Book::factory()->create();
+        $copies = BookCopy::factory()->count(2)->create(['book_id' => $book->id]);
+
+        $book->delete();
+
+        $this->assertSoftDeleted($book);
+
+        foreach ($copies as $copy) {
+            $this->assertSoftDeleted($copy);
+        }
+    }
+
     public function test_duplicate_public_id_fails_fast(): void
     {
         $publicId = '01HX0000000000000000000000';
@@ -120,7 +134,7 @@ class LibraryFoundationTest extends TestCase
 
         $copy = BookCopy::factory()->create(['book_id' => $book->id]);
 
-        $this->assertSame('BOS (Gov-Fund)', $copy->funding_source);
+        $this->assertSame('BOSP (Gov-Fund)', $copy->funding_source);
         $this->assertSame('2024', $copy->purchase_year);
     }
 }
