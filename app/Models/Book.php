@@ -29,6 +29,10 @@ class Book extends Model
                 \App\Jobs\FetchBookMetadataJob::dispatch($book);
             }
         });
+
+        static::deleted(function (Book $book): void {
+            $book->copies()->delete();
+        });
     }
 
     /**
