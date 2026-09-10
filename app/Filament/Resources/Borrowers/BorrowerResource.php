@@ -6,9 +6,11 @@ use App\Enums\BorrowerType;
 use App\Filament\Resources\Borrowers\Pages\CreateBorrower;
 use App\Filament\Resources\Borrowers\Pages\EditBorrower;
 use App\Filament\Resources\Borrowers\Pages\ListBorrowers;
+use App\Filament\Resources\Borrowers\Pages\ImportBorrowers;
 use App\Filament\Resources\Borrowers\Pages\ViewBorrower;
 use App\Models\Borrower;
 use BackedEnum;
+use Filament\Actions\BulkAction;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
@@ -16,6 +18,7 @@ use Filament\Actions\ViewAction;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
+use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
@@ -52,6 +55,21 @@ class BorrowerResource extends Resource
             ])
             ->bulkActions([
                 BulkActionGroup::make([
+                    BulkAction::make('updateStatus')
+                        ->label('Update status')
+                        ->form([
+                            Select::make('status')
+                                ->options([
+                                    'active' => 'Active',
+                                    'potential' => 'Potential',
+                                    'inactive' => 'Inactive',
+                                ])
+                                ->required(),
+                        ])
+                        ->action(function (\Illuminate\Support\Collection $records, array $data): void {
+                            Borrower::whereKey($records->modelKeys())->update(['status' => $data['status']]);
+                            Notification::make()->title('Borrowers updated')->success()->send();
+                        }),
                     DeleteBulkAction::make(),
                 ]),
             ]);
@@ -60,7 +78,8 @@ class BorrowerResource extends Resource
     public static function getPages(): array
     {
         return [
-            'index' => ListBorrowers::route('/'),
+                        'index' => ListBorrowers::route('/'),
+            'import' => ImportBorrowers::route('/import'),
             'create' => CreateBorrower::route('/create'),
             'view' => ViewBorrower::route('/{record}'),
             'edit' => EditBorrower::route('/{record}/edit'),

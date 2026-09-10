@@ -18,7 +18,7 @@ class ListBorrowers extends ListRecords
                 ->icon('heroicon-o-arrow-path')
                 ->color('info')
                 ->requiresConfirmation()
-                ->action(function () {
+                ->action(function (): void {
                     \App\Jobs\SyncBorrowersFromSurrealDbJob::dispatch();
                     \Filament\Notifications\Notification::make()
                         ->title('Sync Started')
@@ -26,6 +26,11 @@ class ListBorrowers extends ListRecords
                         ->info()
                         ->send();
                 }),
+            Actions\Action::make('import_google_sheet')
+                ->label('Import from Google Sheet')
+                ->icon('heroicon-o-cloud-arrow-down')
+                ->color('success')
+                ->url(fn (): string => BorrowerResource::getUrl('import')),
             Actions\CreateAction::make(),
         ];
     }

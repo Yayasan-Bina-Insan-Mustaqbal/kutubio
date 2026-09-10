@@ -39,12 +39,14 @@ class Borrower extends Model
         return $this->belongsTo(User::class);
     }
 
-    /**
-     * @return HasMany<Loan, $this>
-     */
     public function loans(): HasMany
     {
         return $this->hasMany(Loan::class);
+    }
+
+    public function enrollments(): HasMany
+    {
+        return $this->hasMany(BorrowerEnrollment::class);
     }
 
     protected function casts(): array
