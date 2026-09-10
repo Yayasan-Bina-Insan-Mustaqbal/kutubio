@@ -93,6 +93,20 @@ class CopiesRelationManager extends RelationManager
                             URL::signedRoute('download.temp', ['filename' => $filename, 'name' => $originalName])
                         );
                     }),
+                Action::make('print_card')
+                    ->label('Card')
+                    ->icon('heroicon-o-identification')
+                    ->action(function ($record, PrintService $printService) {
+                        $pdf = $printService->generateBookCards(collect([$record]));
+
+                        $filename = Str::uuid()->toString().'.pdf';
+                        $originalName = "book-card-{$record->public_id}.pdf";
+                        Storage::disk('local')->put('temp-pdfs/'.$filename, $pdf);
+
+                        return redirect()->away(
+                            URL::signedRoute('download.temp', ['filename' => $filename, 'name' => $originalName])
+                        );
+                    }),
                 DeleteAction::make(),
             ])
             ->bulkActions([
@@ -117,6 +131,20 @@ class CopiesRelationManager extends RelationManager
 
                         $filename = Str::uuid()->toString().'.pdf';
                         $originalName = 'stickers-'.now()->format('Y-m-d').'.pdf';
+                        Storage::disk('local')->put('temp-pdfs/'.$filename, $pdf);
+
+                        return redirect()->away(
+                            URL::signedRoute('download.temp', ['filename' => $filename, 'name' => $originalName])
+                        );
+                    }),
+                BulkAction::make('print_cards')
+                    ->label('Print Cards')
+                    ->icon('heroicon-o-identification')
+                    ->action(function (Collection $records, PrintService $printService) {
+                        $pdf = $printService->generateBookCards($records);
+
+                        $filename = Str::uuid()->toString().'.pdf';
+                        $originalName = 'book-cards-'.now()->format('Y-m-d').'.pdf';
                         Storage::disk('local')->put('temp-pdfs/'.$filename, $pdf);
 
                         return redirect()->away(
