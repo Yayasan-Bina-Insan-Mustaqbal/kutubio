@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\Books\RelationManagers;
 
 use App\Enums\BookCopyStatus;
+use App\Models\Book;
 use App\Models\PrintProfile;
 use App\Services\PrintService;
 use Filament\Forms\Components\DatePicker;
@@ -15,7 +16,6 @@ use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Actions\Action;
 use Filament\Actions\BulkAction;
-use Filament\Actions\CreateAction;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\EditAction;
 use Filament\Tables\Columns\TextColumn;
@@ -67,7 +67,47 @@ class CopiesRelationManager extends RelationManager
                     ->sortable(),
             ])
             ->headerActions([
-                CreateAction::make(),
+                Action::make('create_copy')
+                    ->label('New book copy')
+                    ->schema([
+                        TextInput::make('quantity')
+                            ->label('Number of copies')
+                            ->numeric()
+                            ->minValue(1)
+                            ->default(1)
+                            ->required(),
+                        Select::make('status')
+                            ->options(BookCopyStatus::class)
+                            ->default(BookCopyStatus::Draft)
+                            ->required(),
+                        Select::make('funding_source')
+                            ->label('Funding Source')
+                            ->options([
+                                'self' => 'Self-Fund',
+                                'BOSP' => 'BOSP (Gov-Fund)',
+                            ])
+                            ->default('self')
+                            ->required(),
+                        Select::make('purchase_year')
+                            ->label('Year of Purchase')
+                            ->options([
+                                'Old Collection' => 'Old Collection',
+                            ] + collect(range(2023, 2030))->mapWithKeys(fn (int $year): array => [(string) $year => (string) $year])->all())
+                            ->default('Old Collection')
+                            ->required(),
+                    ])
+                    ->action(function (array $data): void {
+                        $ownerRecord = $this->getOwnerRecord();
+
+                        for ($i = 0; $i < (int) $data['quantity']; $i++) {
+                            $ownerRecord->copies()->create([
+                                'status' => $data['status'],
+                                'funding_source' => $data['funding_source'],
+                                'purchase_year' => $data['purchase_year'],
+                                'acquired_at' => now(),
+                            ]);
+                        }
+                    }),
             ])
             ->actions([
                 EditAction::make(),
@@ -87,6 +127,20 @@ class CopiesRelationManager extends RelationManager
 
                         $filename = Str::uuid()->toString().'.pdf';
                         $originalName = "sticker-{$record->public_id}.pdf";
+                        Storage::disk('local')->put('temp-pdfs/'.$filename, $pdf);
+
+                        return redirect()->away(
+                            URL::signedRoute('download.temp', ['filename' => $filename, 'name' => $originalName])
+                        );
+                    }),
+                Action::make('print_card')
+                    ->label('Card')
+                    ->icon('heroicon-o-identification')
+                    ->action(function ($record, PrintService $printService) {
+                        $pdf = $printService->generateBookCards(collect([$record]));
+
+                        $filename = Str::uuid()->toString().'.pdf';
+                        $originalName = "book-card-{$record->public_id}.pdf";
                         Storage::disk('local')->put('temp-pdfs/'.$filename, $pdf);
 
                         return redirect()->away(
@@ -117,6 +171,20 @@ class CopiesRelationManager extends RelationManager
 
                         $filename = Str::uuid()->toString().'.pdf';
                         $originalName = 'stickers-'.now()->format('Y-m-d').'.pdf';
+                        Storage::disk('local')->put('temp-pdfs/'.$filename, $pdf);
+
+                        return redirect()->away(
+                            URL::signedRoute('download.temp', ['filename' => $filename, 'name' => $originalName])
+                        );
+                    }),
+                BulkAction::make('print_cards')
+                    ->label('Print Cards')
+                    ->icon('heroicon-o-identification')
+                    ->action(function (Collection $records, PrintService $printService) {
+                        $pdf = $printService->generateBookCards($records);
+
+                        $filename = Str::uuid()->toString().'.pdf';
+                        $originalName = 'book-cards-'.now()->format('Y-m-d').'.pdf';
                         Storage::disk('local')->put('temp-pdfs/'.$filename, $pdf);
 
                         return redirect()->away(

@@ -5,6 +5,7 @@ namespace App\Filament\Resources\Borrowers;
 use App\Enums\BorrowerType;
 use App\Filament\Resources\Borrowers\Pages\CreateBorrower;
 use App\Filament\Resources\Borrowers\Pages\EditBorrower;
+use App\Filament\Resources\Borrowers\Pages\ImportBorrowers;
 use App\Filament\Resources\Borrowers\Pages\ListBorrowers;
 use App\Filament\Resources\Borrowers\Pages\ViewBorrower;
 use App\Models\Borrower;
@@ -62,6 +63,7 @@ class BorrowerResource extends Resource
         return [
             'index' => ListBorrowers::route('/'),
             'create' => CreateBorrower::route('/create'),
+            'import' => ImportBorrowers::route('/import'),
             'view' => ViewBorrower::route('/{record}'),
             'edit' => EditBorrower::route('/{record}/edit'),
         ];
