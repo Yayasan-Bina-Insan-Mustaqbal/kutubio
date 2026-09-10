@@ -202,29 +202,27 @@ class ImportBorrowersFromGoogleSheet extends Command
 
     private function academicYear(?string $year): string
     {
-        if (! preg_match('/^(20\d{2})$/', trim((string) $year), $matches)) {
-            throw new RuntimeException('Academic year must be a four-digit start year, e.g. 2026.');
+        $year = trim((string) $year);
+
+        if (! preg_match('/^\d{2}\/\d{2}$/', $year)) {
+            throw new RuntimeException('Academic year must use the YY/ZZ format, e.g. 26/27.');
         }
 
-        $start = (int) $matches[1];
-
-        return $start.'/'.($start + 1);
+        return $year;
     }
 
     private function academicYearPrefix(string $academicYear): string
     {
-        preg_match('/^(20\d{2})\/(20\d{2})$/', $academicYear, $matches);
-
-        return substr($matches[1], -2).substr($matches[2], -2);
+        return str_replace('/', '', $academicYear);
     }
 
     private function classSectionCode(?int $grade, ?string $section): string
     {
-        if ($grade === null || $section === null || ! preg_match('/^[A-Z]$/', $section)) {
+        if ($grade === null || $section === null || ! preg_match('/^[A-I]$/', $section)) {
             throw new RuntimeException('Class and section are required to generate student identifier.');
         }
 
-        return $grade.str_pad((string) (ord($section) - 64), 2, '0', STR_PAD_LEFT);
+        return $grade.(ord($section) - 64);
     }
 
     private function parseClass(string $class): array

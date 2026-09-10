@@ -23,12 +23,16 @@ class BorrowerForm
                     ->options(BorrowerType::class)
                     ->required()
                     ->live()
-                    ->afterStateUpdated(function (Set $set, ?string $state): void {
-                        $set('identifier', $state ? $state.'-' : null);
+                    ->afterStateUpdated(function (Set $set, BorrowerType|string|null $state): void {
+                        $type = $state instanceof BorrowerType ? $state->value : $state;
+                        $set('identifier', $type ? $type.'-' : null);
                     }),
-                TextInput::make('class')
-                    ->visible(fn ($get) => $get('type') === BorrowerType::Student->value)
-                    ->placeholder('e.g. 10-A'),
+                Select::make('class')
+                    ->label('Class')
+                    ->options(self::classOptions())
+                    ->searchable()
+                    ->visible(fn (Get $get): bool => self::isStudent($get('type')))
+                    ->required(fn (Get $get): bool => self::isStudent($get('type'))),
                 TextInput::make('identifier')
                     ->label(fn (Get $get): string => match ($get('type')) {
                         BorrowerType::Student->value => 'Student ID (NIS)',
@@ -52,5 +56,18 @@ class BorrowerForm
                 Textarea::make('notes')
                     ->columnSpanFull(),
             ]);
+    }
+
+    private static function isStudent(BorrowerType|string|null $type): bool
+    {
+        return ($type instanceof BorrowerType ? $type->value : $type) === BorrowerType::Student->value;
+    }
+    private static function classOptions(): array
+    {
+        return collect(range(1, 12))
+            ->flatMap(fn (int $grade): array => collect(range('A', 'I'))
+                ->mapWithKeys(fn (string $section): array => ["{$grade}{$section}" => "{$grade}{$section}"])
+                ->all())
+            ->all();
     }
 }

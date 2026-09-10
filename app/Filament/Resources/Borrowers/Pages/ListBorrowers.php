@@ -26,6 +26,10 @@ class ListBorrowers extends ListRecords
                         ->info()
                         ->send();
                 }),
+            Actions\Action::make('import_google_sheet')
+                ->label('Import Google Sheet')
+                ->icon('heroicon-o-arrow-up-tray')
+                ->url(fn (): string => BorrowerResource::getUrl('import')),
             Actions\CreateAction::make(),
         ];
     }

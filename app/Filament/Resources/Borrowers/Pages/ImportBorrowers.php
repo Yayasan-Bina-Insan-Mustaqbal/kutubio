@@ -115,7 +115,7 @@ class ImportBorrowers extends Page
                 ->label('Fetch & Preview')
                 ->schema([
                     TextInput::make('url')->label('Google Sheets URL')->url()->required(),
-                    TextInput::make('academic_year')->label('Academic Year')->placeholder('YYYY, e.g. 2026')->helperText('Enter the four-digit start year; 2026 becomes 2026/2027.')->required(),
+                    TextInput::make('academic_year')->label('Academic Year')->placeholder('YY/ZZ, e.g. 26/27')->helperText('Use the shortened academic year format, for example 26/27.')->required(),
                 ])
                 ->action(function (array $data): void {
                     $exitCode = Artisan::call('kutubio:import-borrowers-google-sheet', ['url' => $data['url'], 'academicYear' => $data['academic_year']]);

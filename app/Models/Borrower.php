@@ -16,8 +16,8 @@ class Borrower extends Model
     protected $fillable = [
         'name',
         'type',
-        'class',
-        'identifier',
+            'class',
+            'identifier',
         'surreal_id',
         'user_id',
         'status',
@@ -37,6 +37,14 @@ class Borrower extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    /**
+     * @return HasMany<BorrowerEnrollment, $this>
+     */
+    public function enrollments(): HasMany
+    {
+        return $this->hasMany(BorrowerEnrollment::class);
     }
 
     /**
