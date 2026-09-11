@@ -29,7 +29,11 @@
                     $authorText = trim((string) ($item->book->authors_display ?? $item->book->authors ?? ''));
                     $honorifics = ['dr', 'prof', 'drs', 'ir', 'hj', 'h', 'kh', 'ust', 'ustadz', 'ustaz', 'mr', 'mrs', 'ms', 'spd', 's pd', 's kom', 's ip', 'm pd', 'mm', 'se', 'sh', 'ma', 'phd', 'mba'];
                     $authorWords = collect(preg_split('/\s+/', $authorText, -1, PREG_SPLIT_NO_EMPTY))
-                        ->reject(fn (string $word): bool => in_array(mb_strtolower(rtrim($word, '.,')), $honorifics, true))
+                        ->reject(function (string $word) use ($honorifics): bool {
+                            $normalizedWord = preg_replace('/[^a-z]/', '', mb_strtolower($word));
+
+                            return in_array($normalizedWord, $honorifics, true);
+                        })
                         ->values();
                     $authorCode = $authorWords->count() > 1
                         ? mb_strtoupper(mb_substr($authorWords->last(), 0, 3))
