@@ -17,7 +17,7 @@
         .author-code { font-family: monospace; font-weight: bold; margin-bottom: 1mm; }
 >>>>>>> origin/main
         .title { font-weight: bold; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; margin-bottom: 1mm; }
-        .call-number { font-family: monospace; background: #f0f0f0; padding: 0.5mm 1mm; font-size: 8pt; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .call-number { font-family: monospace; background: #f0f0f0; padding: 0.5mm 1mm; margin-bottom: 1mm; font-size: 8pt; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     </style>
 </head>
 
@@ -47,7 +47,6 @@
                     <div class="meta">
                         <div class="call-number" style="background: {{ $item->book->category->theme_bg_color ?? '#f0f0f0' }}; color: {{ $item->book->category->theme_text_color ?? '#333' }};">
                             {{ $item->book->category->code ?? 'GEN' }}
-                            {{ \Illuminate\Support\Str::limit($item->book->category->label ?? 'General', 14) }}
                         </div>
                         @if ($authorCode !== '')
                             <div class="author-code">{{ $authorCode }}</div>
