@@ -27,7 +27,7 @@
             @foreach ($items as $item)
                 @php
                     $authorText = trim((string) ($item->book->authors_display ?? $item->book->authors ?? ''));
-                    $honorifics = ['dr', 'prof', 'drs', 'ir', 'hj', 'h', 'kh', 'ust', 'ustadz', 'ustaz', 'mr', 'mrs', 'ms', 'spd', 's pd', 's kom', 's ip', 'm pd', 'mm', 'se', 'sh', 'ma', 'phd', 'mba'];
+                    $honorifics = ['prof', 'dr', 'drg', 'psikolog', 'h', 'hj', 'kh', 'pdt', 'rd', 'rp', 'spd', 'spdi', 'se', 'skom', 'st', 'sh', 'ssi', 'spsi', 'sag', 'sud', 'sth', 'mpd', 'mba', 'mm', 'msi', 'mh', 'mag', 'mpdi', 'ct', 'cps', 'cht', 'ak', 'ca', 'cpa', 'drs', 'ir', 'ust', 'ustadz', 'ustaz', 'mr', 'mrs', 'ms', 'ma', 'phd'];
                     $authorWords = collect(preg_split('/\s+/', $authorText, -1, PREG_SPLIT_NO_EMPTY))
                         ->reject(function (string $word) use ($honorifics): bool {
                             $normalizedWord = preg_replace('/[^a-z]/', '', mb_strtolower($word));
