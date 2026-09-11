@@ -11,7 +11,7 @@
         .qr { width: 18mm; height: 18mm; margin-right: 2mm; }
         .qr svg { width: 100%; height: 100%; }
         .meta { flex: 1; font-size: 7pt; line-height: 1.1; }
-        .author-code { font-family: monospace; font-weight: bold; margin-bottom: 1mm; }
+        .author-code { font-family: monospace; font-weight: bold; margin-top: 1mm; margin-bottom: 1mm; }
         .title { font-weight: bold; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; margin-bottom: 1mm; }
         .call-number { font-family: monospace; background: #f0f0f0; padding: 0.5mm 1mm; font-size: 8pt; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     </style>
@@ -27,10 +27,12 @@
             @foreach ($items as $item)
                 @php
                     $authorText = trim((string) ($item->book->authors_display ?? $item->book->authors ?? ''));
-                    $authorCode = collect(preg_split('/\s+/', $authorText, -1, PREG_SPLIT_NO_EMPTY))
-                        ->take(2)
-                        ->map(fn (string $word): string => mb_strtoupper(mb_substr($word, 0, 3)))
-                        ->implode(' ');
+                    $authorWords = collect(preg_split('/\s+/', $authorText, -1, PREG_SPLIT_NO_EMPTY))
+                        ->reject(fn (string $word): bool => in_array(mb_strtolower(rtrim($word, '.,')), ['dr', 'prof', 'drs', 'ir', 'hj', 'h', 'kh', 'ust', 'ustadz', 'ustaz', 'mr', 'mrs', 'ms'], true))
+                        ->values();
+                    $authorCode = $authorWords->count() > 1
+                        ? mb_strtoupper(mb_substr($authorWords->last(), 0, 3))
+                        : mb_strtoupper(mb_substr($authorWords->first() ?? '', 0, 3));
                 @endphp
                 <div class="slot">
                     <div class="qr">
