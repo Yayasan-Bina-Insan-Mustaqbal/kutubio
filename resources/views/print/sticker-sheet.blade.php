@@ -33,6 +33,8 @@
                     $authorCode = $authorWords->count() > 1
                         ? mb_strtoupper(mb_substr($authorWords->last(), 0, 3))
                         : mb_strtoupper(mb_substr($authorWords->first() ?? '', 0, 3));
+                    $title = trim((string) ($item->book->title ?? $item->name ?? 'Untitled'));
+                    $titleInitial = mb_strtoupper(mb_substr($title, 0, 1));
                 @endphp
                 <div class="slot">
                     <div class="qr">
@@ -46,7 +48,7 @@
                         @if ($authorCode !== '')
                             <div class="author-code">{{ $authorCode }}</div>
                         @endif
-                        <div class="title">{{ $item->book->title ?? $item->name ?? 'Untitled' }}</div>
+                        <div class="title">{{ $titleInitial }}</div>
                         <div style="margin-top: 0.8mm; display: flex; gap: 0.8mm; font-size: 5pt; font-weight: bold;">
                             <span style="background: {{ $item->funding_source === 'BOSP (Gov-Fund)' ? '#dcfce7' : '#e0f2fe' }}; color: {{ $item->funding_source === 'BOSP (Gov-Fund)' ? '#15803d' : '#0369a1' }}; padding: 0.2mm 0.8mm; border-radius: 0.4mm;">{{ $item->funding_source }}</span>
                             <span style="background: #f3f4f6; color: #374151; padding: 0.2mm 0.8mm; border-radius: 0.4mm;">{{ $item->purchase_year }}</span>
