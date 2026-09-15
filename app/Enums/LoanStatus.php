@@ -15,7 +15,7 @@ enum LoanStatus: string implements HasColor, HasLabel
     public function getLabel(): ?string
     {
         return match ($this) {
-            self::Active => 'Active',
+            self::Active => 'Borrowed',
             self::Returned => 'Returned',
             self::Overdue => 'Overdue',
             self::Lost => 'Lost',

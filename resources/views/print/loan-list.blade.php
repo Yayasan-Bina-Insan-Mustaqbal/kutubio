@@ -116,7 +116,11 @@
                             $statusValue = $item->status instanceof \BackedEnum
                                 ? $item->status->value
                                 : (string) $item->status;
-                            $statusLabel = ucfirst(str_replace(['-', '_'], ' ', $statusValue));
+                            $statusLabel = match ($statusValue) {
+                                'active', 'borrowed' => 'DIPINJAM',
+                                'returned' => 'DIKEMBALIKAN',
+                                default => ucfirst(str_replace(['-', '_'], ' ', $statusValue)),
+                            };
                             $statusClass = match ($statusValue) {
                                 'returned' => 'returned',
                                 'overdue' => 'overdue',
