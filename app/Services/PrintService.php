@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\GeneralSetting;
+use App\Models\Loan;
 use App\Models\PrintProfile;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Http;
@@ -72,5 +73,34 @@ final class PrintService
         ])->render();
 
         return $this->renderPdfFromHtml($html);
+    }
+
+    /**
+     * Generate a loan report PDF for the current selection.
+     */
+    public function generateLoanList(Collection $items): string
+    {
+        $settings = GeneralSetting::find(1);
+        $libraryName = $settings?->library_name ?? 'Kutubio Library';
+
+        $items = $items
+            ->filter(fn ($item) => $item instanceof Loan)
+            ->sortBy([
+                ['bookCopy.book.title', 'asc'],
+                ['borrower.class', 'asc'],
+                ['status', 'asc'],
+            ])
+            ->values();
+
+        $html = View::make('print.loan-list', [
+            'items' => $items,
+            'libraryName' => $libraryName,
+            'generatedAt' => now(),
+        ])->render();
+
+        return $this->renderPdfFromHtml($html, [
+            'paperWidth' => '8.27',
+            'paperHeight' => '11.7',
+        ]);
     }
 }

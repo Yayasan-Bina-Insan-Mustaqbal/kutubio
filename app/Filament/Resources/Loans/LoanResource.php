@@ -3,15 +3,19 @@
 namespace App\Filament\Resources\Loans;
 
 use App\Enums\BookCopyStatus;
+use App\Enums\BorrowerType;
 use App\Enums\LoanStatus;
 use App\Filament\Resources\Loans\Pages\CreateLoan;
 use App\Filament\Resources\Loans\Pages\EditLoan;
 use App\Filament\Resources\Loans\Pages\ListLoans;
 use App\Filament\Resources\Loans\Pages\ViewLoan;
 use App\Models\BookCopy;
+use App\Models\Borrower;
 use App\Models\Loan;
+use App\Services\PrintService;
 use BackedEnum;
 use Filament\Actions\Action;
+use Filament\Actions\BulkAction;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
@@ -26,9 +30,19 @@ use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
+use Filament\Schemas\Components\Utilities\Get;
+use Filament\Schemas\Components\Utilities\Set;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Filters\Filter;
+use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\TrashedFilter;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Collection as EloquentCollection;
+use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\URL;
+use Illuminate\Support\Str;
 use UnitEnum;
 
 class LoanResource extends Resource
@@ -90,12 +104,19 @@ class LoanResource extends Resource
         return $table
             ->columns([
                 TextColumn::make('borrower.name')
+                    ->label('Borrower')
                     ->searchable()
                     ->sortable(),
                 TextColumn::make('bookCopy.book.title')
-                    ->label('Book')
+                    ->label('Book Title')
                     ->searchable()
-                    ->sortable(),
+                    ->sortable()
+                    ->wrap(),
+                TextColumn::make('borrower.class')
+                    ->label('Class')
+                    ->searchable()
+                    ->sortable()
+                    ->placeholder('—'),
                 TextColumn::make('bookCopy.public_id')
                     ->label('Copy ID')
                     ->searchable(),
@@ -106,9 +127,72 @@ class LoanResource extends Resource
                     ->dateTime()
                     ->sortable(),
                 TextColumn::make('status')
-                    ->badge(),
+                    ->badge()
+                    ->sortable(),
             ])
             ->filters([
+                SelectFilter::make('status')
+                    ->options(LoanStatus::class),
+                Filter::make('borrower_profile')
+                    ->label('Borrower Profile')
+                    ->form([
+                        Select::make('type')
+                            ->label('Type')
+                            ->options(fn (): array => [
+                                'all' => 'All types',
+                                ...collect(BorrowerType::cases())
+                                    ->mapWithKeys(fn (BorrowerType $type): array => [$type->value => $type->getLabel()])
+                                    ->all(),
+                            ])
+                            ->default('all')
+                            ->live()
+                            ->afterStateUpdated(function (?string $state, Set $set): void {
+                                if ($state !== null && $state !== 'all' && $state !== BorrowerType::Student->value) {
+                                    $set('class', 'all');
+                                }
+                            }),
+                        Select::make('class')
+                            ->label('Class')
+                            ->options(function (Get $get): array {
+                                $type = $get('type');
+
+                                if ($type === null || $type === 'all' || $type !== BorrowerType::Student->value) {
+                                    return ['all' => 'All classes'];
+                                }
+
+                                return Borrower::query()
+                                    ->where('type', BorrowerType::Student)
+                                    ->whereNotNull('class')
+                                    ->distinct()
+                                    ->orderBy('class')
+                                    ->pluck('class', 'class')
+                                    ->mapWithKeys(fn (string $class): array => [$class => $class])
+                                    ->prepend('All classes', 'all')
+                                    ->all();
+                            })
+                            ->default('all')
+                            ->live()
+                            ->afterStateUpdated(function (?string $state, Set $set): void {
+                                if ($state !== null && $state !== 'all') {
+                                    $set('type', BorrowerType::Student->value);
+                                }
+                            }),
+                    ])
+                    ->query(function (Builder $query, array $data): Builder {
+                        $type = $data['type'] ?? 'all';
+                        $class = $data['class'] ?? 'all';
+
+                        if ($type !== 'all' && $type !== null && $type !== '') {
+                            $query->whereRelation('borrower', 'type', $type);
+                        }
+
+                        if (($type === 'all' || $type === BorrowerType::Student->value) && $class !== 'all' && $class !== null && $class !== '') {
+                            $query->whereRelation('borrower', 'class', $class)
+                                ->whereRelation('borrower', 'type', BorrowerType::Student->value);
+                        }
+
+                        return $query;
+                    }),
                 TrashedFilter::make()
                     ->visible(fn () => auth()->user()->isAdmin()),
             ])
@@ -168,6 +252,30 @@ class LoanResource extends Resource
             ->bulkActions([
                 BulkActionGroup::make([
                     DeleteBulkAction::make(),
+                    BulkAction::make('print_selected')
+                        ->label('Print Selected')
+                        ->icon('heroicon-o-printer')
+                        ->action(function (Collection|EloquentCollection $records, PrintService $printService) {
+                            $records = $records->filter(fn (Loan $record): bool => $record instanceof Loan);
+
+                            if ($records->isEmpty()) {
+                                Notification::make()
+                                    ->title('No loan records selected')
+                                    ->warning()
+                                    ->send();
+
+                                return;
+                            }
+
+                            $pdf = $printService->generateLoanList($records);
+                            $filename = Str::uuid()->toString().'.pdf';
+                            $originalName = 'loan-report-'.now()->format('Y-m-d-His').'.pdf';
+                            Storage::disk('local')->put('temp-pdfs/'.$filename, $pdf);
+
+                            return redirect()->away(
+                                URL::signedRoute('download.temp', ['filename' => $filename, 'name' => $originalName])
+                            );
+                        }),
                 ]),
             ]);
     }
