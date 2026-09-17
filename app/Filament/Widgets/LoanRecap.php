@@ -8,8 +8,12 @@ use Filament\Tables;
 use Filament\Tables\Table;
 use Filament\Widgets\TableWidget;
 use Illuminate\Database\Eloquent\Builder;
+use App\Services\PrintService;
 use Filament\Actions\Action;
 use Filament\Actions\BulkAction;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\URL;
+use Illuminate\Support\Str;
 use Illuminate\Support\Collection;
 use Filament\Notifications\Notification;
 use Illuminate\Contracts\View\View;
@@ -30,8 +34,8 @@ class LoanRecap extends TableWidget
         return $table
             ->query(
                 Loan::query()
-                    ->where('status', LoanStatus::Active)
-                    ->where('due_at', '<=', now()->addDays(2))
+                    ->whereIn('status', [LoanStatus::Active, 'borrowed'])
+                    ->with(['borrower', 'bookCopy.book'])
                     ->orderBy('due_at', 'asc')
             )
             ->columns([
@@ -81,17 +85,18 @@ class LoanRecap extends TableWidget
                     ]),
             ])
             ->bulkActions([
-                BulkAction::make('copyBulkReminder')
-                    ->label('Copy Bulk Reminder')
-                    ->icon('heroicon-m-clipboard-document-list')
-                    ->action(function (Collection $records) {
-                        $text = "DAFTAR REMINDER PENGEMBALIAN BUKU:\n\n";
-                        foreach ($records as $record) {
-                            $status = $record->due_at->isPast() ? "DUE" : "SOON";
-                            $text .= "- {$record->borrower->name} (" . ($record->borrower->class ?? '-') . "): {$record->bookCopy->book->title} [{$status}: {$record->due_at->format('d M Y')}]\n";
-                        }
-                        
-                        $this->dispatch('copy-to-clipboard', text: $text);
+                BulkAction::make('printBorrowerReport')
+                    ->label('Print Borrower Report')
+                    ->icon('heroicon-o-printer')
+                    ->action(function (Collection $records, PrintService $printService) {
+                        $pdf = $printService->generateLoanList($records);
+                        $filename = Str::uuid()->toString().'.pdf';
+                        $originalName = 'borrowers-not-returned-'.now()->format('Y-m-d-His').'.pdf';
+                        Storage::disk('local')->put('temp-pdfs/'.$filename, $pdf);
+
+                        return redirect()->away(
+                            URL::signedRoute('download.temp', ['filename' => $filename, 'name' => $originalName])
+                        );
                     }),
             ]);
     }
