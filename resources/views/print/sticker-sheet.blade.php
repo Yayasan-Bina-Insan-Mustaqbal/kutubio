@@ -18,13 +18,21 @@
 </head>
 
 <body>
-    <div class="page">
-        <div class="grid">
-            @for ($i = 0; $i < $skipSlots; $i++)
-                <div class="slot empty"></div>
-            @endfor
+    @php
+        $slotsPerPage = $profile->grid_columns * $profile->grid_rows;
+        $pages = $items->chunk($slotsPerPage);
+    @endphp
 
-            @foreach ($items as $item)
+    @foreach ($pages as $pageItems)
+        <div class="page" @if (! $loop->last) style="page-break-after: always;" @endif>
+            <div class="grid">
+                @if ($loop->first)
+                    @for ($i = 0; $i < $skipSlots; $i++)
+                        <div class="slot empty"></div>
+                    @endfor
+                @endif
+
+                @foreach ($pageItems as $item)
                 @php
                     $authorText = trim((string) ($item->book->authors_display ?? $item->book->authors ?? ''));
                     $honorifics = ['prof', 'dr', 'drg', 'psikolog', 'h', 'hj', 'kh', 'pdt', 'rd', 'rp', 'spd', 'spdi', 'se', 'skom', 'st', 'sh', 'ssi', 'spsi', 'sag', 'sud', 'sth', 'mpd', 'mba', 'mm', 'msi', 'mh', 'mag', 'mpdi', 'ct', 'cps', 'cht', 'ak', 'ca', 'cpa', 'drs', 'ir', 'ust', 'ustadz', 'ustaz', 'mr', 'mrs', 'ms', 'ma', 'phd'];
@@ -63,9 +71,10 @@
                         </div>
                     </div>
                 </div>
-            @endforeach
+                @endforeach
+            </div>
         </div>
-    </div>
+    @endforeach
 </body>
 
 </html>
