@@ -12,7 +12,7 @@ use Illuminate\Support\Str;
 
 use Illuminate\Database\Eloquent\SoftDeletes;
 
-#[Fillable(['title', 'subtitle', 'authors_display', 'isbn13', 'publisher', 'page_count', 'synopsis', 'category_id', 'approved_metadata_revision_id', 'deletion_reason'])]
+#[Fillable(['title', 'subtitle', 'authors_display', 'author_name_style', 'isbn13', 'publisher', 'page_count', 'synopsis', 'category_id', 'approved_metadata_revision_id', 'deletion_reason'])]
 class Book extends Model
 {
     /** @use HasFactory<BookFactory> */

@@ -121,7 +121,6 @@
                             </template>
                         </div>
 
-                        <!-- Selected Author Preview -->
                         <div class="rounded-xl border border-primary-100 bg-primary-50/30 p-4 dark:border-primary-900/20 dark:bg-primary-900/5">
                             <p class="mb-1 text-[10px] font-bold uppercase tracking-widest text-primary-600 dark:text-primary-400">Selected Author</p>
                             <p class="text-sm font-semibold text-gray-900 dark:text-white" :class="!$wire.bookAuthors && 'italic font-normal text-gray-400'" x-text="$wire.bookAuthors || 'Select author words...'"></p>

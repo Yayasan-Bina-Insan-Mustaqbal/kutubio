@@ -27,6 +27,14 @@ class BookForm
                             ->label('Authors')
                             ->rows(2)
                             ->columnSpanFull(),
+                        Select::make('author_name_style')
+                            ->label('Author Name Style')
+                            ->options([
+                                'local' => 'Local author (first name)',
+                                'foreign' => 'Foreign author (last name)',
+                            ])
+                            ->default('local')
+                            ->required(),
                         TextInput::make('isbn13')
                             ->label('ISBN-13')
                             ->maxLength(13),

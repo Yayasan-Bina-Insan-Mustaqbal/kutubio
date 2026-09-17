@@ -96,6 +96,8 @@ class PersistCaptureSessionJob implements ShouldQueue
             ->latest()
             ->first()?->payload ?? [];
 
+        $authorNameStyle = $visionData['author_name_style'] ?? 'local';
+
         // Fallback to ISBN from back_image_meta or raw capture
         $isbn = $qrData['decoded_text'] ?? null;
         if (! $isbn) {
@@ -112,7 +114,7 @@ class PersistCaptureSessionJob implements ShouldQueue
             throw new \Exception('Cannot persist: No book title found in metadata revisions.');
         }
 
-        DB::transaction(function () use ($visionData, $isbn) {
+            DB::transaction(function () use ($visionData, $isbn, $authorNameStyle) {
             // 1. Find or Create Book
             $book = null;
             if ($isbn) {
@@ -147,11 +149,16 @@ class PersistCaptureSessionJob implements ShouldQueue
                 $book = Book::create([
                     'title' => $visionData['title'],
                     'authors_display' => $authorsDisplay,
+                    'author_name_style' => $authorNameStyle,
                     'isbn13' => $isbn,
                     'publisher' => $visionData['publisher'] ?? null,
                     'subtitle' => $visionData['subtitle'] ?? null,
                     'category_id' => $categoryId,
                 ]);
+            }
+
+            if ($book && $book->author_name_style !== $authorNameStyle) {
+                $book->update(['author_name_style' => $authorNameStyle]);
             }
 
             // 2. Create Book Copies based on quantity

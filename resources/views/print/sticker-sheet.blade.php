@@ -36,7 +36,7 @@
                         })
                         ->values();
                     $authorCode = $authorWords->count() > 1
-                        ? mb_strtoupper(mb_substr($authorWords->last(), 0, 3))
+                        ? mb_strtoupper(mb_substr($item->book->author_name_style === 'foreign' ? $authorWords->last() : $authorWords->first(), 0, 3))
                         : mb_strtoupper(mb_substr($authorWords->first() ?? '', 0, 3));
                     $title = trim((string) ($item->book->title ?? $item->name ?? 'Untitled'));
                     $titleInitial = mb_strtoupper(mb_substr($title, 0, 1));
