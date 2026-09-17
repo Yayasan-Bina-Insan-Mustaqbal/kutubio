@@ -16,6 +16,8 @@ class BookCopiesTable
     public static function configure(Table $table): Table
     {
         return $table
+            ->paginated([12, 36, 48, 60])
+            ->defaultPaginationPageOption(12)
             ->columns([
                 TextColumn::make('public_id')
                     ->label('Public ID')
