@@ -83,12 +83,12 @@
 <body>
     <div class="header">
         <div>
-            <div class="title">Data Peminjaman Buku</div>
+            <div class="title">Loan Report</div>
             <div style="font-size: 10pt; margin-top: 2mm;">{{ $libraryName }}</div>
         </div>
         <div class="meta">
             <div>Dicetak: {{ $generatedAt->translatedFormat('d F Y H:i') }}</div>
-            <div>Jumlah: {{ $items->count() }} data</div>
+            <div>Records: {{ $items->count() }}</div>
         </div>
     </div>
 
@@ -96,9 +96,9 @@
         <thead>
             <tr>
                 <th>No</th>
-                <th>Judul Buku</th>
-                <th>Kelas</th>
-                <th>Nama Peminjam</th>
+                <th>Book Title</th>
+                <th>Class</th>
+                <th>Borrower</th>
                 <th>Status</th>
                 <th>Tanggal Pinjam</th>
                 <th>Jatuh Tempo</th>
@@ -134,7 +134,7 @@
                 </tr>
             @empty
                 <tr>
-                    <td colspan="7" style="text-align: center; padding: 10mm;">Tidak ada data peminjaman.</td>
+                    <td colspan="7" style="text-align: center; padding: 10mm;">No loan records found.</td>
                 </tr>
             @endforelse
         </tbody>

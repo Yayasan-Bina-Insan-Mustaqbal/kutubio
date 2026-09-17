@@ -77,11 +77,11 @@ class LoanRecap extends TableWidget
                                     .send();
                             });
                         " : "",
-                        'data-reminder' => $record ? "Assalamu'alaikum, mengingatkan kepada {$record->borrower->name} " . 
-                                           ($record->borrower->class ? "({$record->borrower->class}) " : "") . 
-                                           "untuk mengembalikan buku \"{$record->bookCopy->book->title}\" yang " . 
-                                           ($record->due_at->isPast() ? "sudah jatuh tempo pada " : "akan jatuh tempo pada ") . 
-                                           $record->due_at->format('d M Y') . ". Syukran." : "",
+                        'data-reminder' => $record ? "Assalamu'alaikum, this is a reminder for {$record->borrower->name} " .
+                                           ($record->borrower->class ? "({$record->borrower->class}) " : "") .
+                                           "to return the book \"{$record->bookCopy->book->title}\" which " .
+                                           ($record->due_at->isPast() ? "was due on " : "is due on ") .
+                                           $record->due_at->format('d M Y') . ". Thank you." : "",
                     ]),
             ])
             ->bulkActions([
