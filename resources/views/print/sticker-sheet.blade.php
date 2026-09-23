@@ -7,8 +7,8 @@
         body { margin: 0; padding: 0; font-family: sans-serif; }
         .page { position: relative; width: {{ $profile->page_width_mm }}mm; height: {{ $profile->page_height_mm }}mm; overflow: hidden; }
         .grid { display: grid; grid-template-columns: repeat({{ $profile->grid_columns }}, {{ $profile->slot_width_mm }}mm); grid-template-rows: repeat({{ $profile->grid_rows }}, {{ $profile->slot_height_mm }}mm); column-gap: {{ $profile->gap_x_mm }}mm; row-gap: {{ $profile->gap_y_mm }}mm; padding-left: {{ $profile->offset_x_mm }}mm; padding-top: {{ $profile->offset_y_mm }}mm; }
-        .slot { width: {{ $profile->slot_width_mm }}mm; height: {{ $profile->slot_height_mm }}mm; border: 0.1mm dashed #eee; box-sizing: border-box; display: flex; align-items: center; padding: 2mm; overflow: hidden; }
-        .qr { width: 18mm; height: 18mm; margin-right: 2mm; }
+        .slot { width: {{ $profile->slot_width_mm }}mm; height: {{ $profile->slot_height_mm }}mm; border: 0.1mm dashed #eee; box-sizing: border-box; display: flex; align-items: center; padding: 2mm 2mm 2mm 5mm; overflow: hidden; }
+        .qr { width: 18mm; height: 18mm; margin-right: 10mm; }
         .qr svg { width: 100%; height: 100%; }
         .meta { flex: 1; font-size: 7pt; line-height: 1.1; }
         .author-code { font-family: monospace; font-weight: bold; margin-bottom: 1mm; }
