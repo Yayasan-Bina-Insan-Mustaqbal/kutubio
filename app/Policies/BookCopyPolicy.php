@@ -39,12 +39,17 @@ class BookCopyPolicy
         return true;
     }
 
+    public function deleteAny(User $user): bool
+    {
+        return true;
+    }
+
     /**
      * Determine whether the user can delete the model.
      */
     public function delete(User $user, BookCopy $bookCopy): bool
     {
-        return $user->isAdmin();
+        return true;
     }
 
     /**
