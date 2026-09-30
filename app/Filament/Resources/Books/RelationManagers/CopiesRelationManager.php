@@ -16,7 +16,9 @@ use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Actions\Action;
 use Filament\Actions\BulkAction;
+use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteAction;
+use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
@@ -41,6 +43,19 @@ class CopiesRelationManager extends RelationManager
                 Select::make('status')
                     ->options(BookCopyStatus::class)
                     ->required(),
+                Select::make('funding_source')
+                    ->label('Funding Source')
+                    ->options([
+                        'self' => 'Self-Fund',
+                        'BOSP' => 'BOSP (Gov-Fund)',
+                    ])
+                    ->required(),
+                Select::make('purchase_year')
+                    ->label('Year of Purchase')
+                    ->options([
+                        'Old Collection' => 'Old Collection',
+                    ] + collect(range(2023, 2030))->mapWithKeys(fn (int $year): array => [(string) $year => (string) $year])->all())
+                    ->required(),
                 TextInput::make('tracking_code')
                     ->maxLength(255),
                 DatePicker::make('acquired_at'),
@@ -53,6 +68,7 @@ class CopiesRelationManager extends RelationManager
     public function table(Table $table): Table
     {
         return $table
+            ->selectable()
             ->columns([
                 TextColumn::make('public_id')
                     ->searchable()
@@ -191,6 +207,9 @@ class CopiesRelationManager extends RelationManager
                             URL::signedRoute('download.temp', ['filename' => $filename, 'name' => $originalName])
                         );
                     }),
+                DeleteBulkAction::make()
+                    ->label('Delete Selected')
+                    ->authorizeIndividualRecords(false),
             ]);
     }
 }

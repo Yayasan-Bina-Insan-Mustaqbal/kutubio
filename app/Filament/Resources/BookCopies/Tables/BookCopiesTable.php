@@ -3,8 +3,6 @@
 namespace App\Filament\Resources\BookCopies\Tables;
 
 use App\Enums\BookCopyStatus;
-use Filament\Actions\BulkActionGroup;
-use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
 use Filament\Tables\Columns\TextColumn;
@@ -16,6 +14,7 @@ class BookCopiesTable
     public static function configure(Table $table): Table
     {
         return $table
+            ->selectable()
             ->paginated([12, 24, 60, 120])
             ->defaultPaginationPageOption(12)
             ->columns([
@@ -53,10 +52,6 @@ class BookCopiesTable
                 ViewAction::make()->iconButton(),
                 EditAction::make()->iconButton(),
             ])
-            ->toolbarActions([
-                BulkActionGroup::make([
-                    DeleteBulkAction::make(),
-                ]),
-            ]);
+            ->toolbarActions([]);
     }
 }

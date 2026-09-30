@@ -7,6 +7,8 @@ use App\Models\Book;
 use App\Models\BookCopy;
 use App\Models\CaptureSession;
 use App\Models\MetadataRevision;
+use App\Models\User;
+use App\Policies\BookCopyPolicy;
 use Database\Seeders\CategorySeeder;
 use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -25,6 +27,19 @@ class LibraryFoundationTest extends TestCase
             'label' => 'Ilmu Komputer, Pengetahuan, Sistem',
             'source_version' => 'tier2DDC',
         ]);
+    }
+
+    public function test_all_user_roles_can_delete_book_copies(): void
+    {
+        $policy = new BookCopyPolicy();
+        $staffUser = User::factory()->create(['role' => 'staff']);
+        $adminUser = User::factory()->create(['role' => 'admin']);
+        $copy = BookCopy::factory()->create();
+
+        $this->assertTrue($policy->deleteAny($staffUser));
+        $this->assertTrue($policy->delete($staffUser, $copy));
+        $this->assertTrue($policy->deleteAny($adminUser));
+        $this->assertTrue($policy->delete($adminUser, $copy));
     }
 
     public function test_book_has_many_copies(): void
@@ -132,7 +147,11 @@ class LibraryFoundationTest extends TestCase
             ],
         ]);
 
-        $copy = BookCopy::factory()->create(['book_id' => $book->id]);
+        $copy = BookCopy::factory()->create([
+            'book_id' => $book->id,
+            'funding_source' => 'BOS',
+            'purchase_year' => '2024',
+        ]);
 
         $this->assertSame('BOSP (Gov-Fund)', $copy->funding_source);
         $this->assertSame('2024', $copy->purchase_year);

@@ -45,10 +45,15 @@ final class PrintService
         $settings = GeneralSetting::find(1);
         $libraryName = $settings?->library_name ?? 'Kutubio Library';
 
+        $pages = self::paginateStickerItems(
+            $items,
+            $profile->grid_columns * $profile->grid_rows,
+            $skipSlots,
+        );
+
         $html = View::make('print.sticker-sheet', [
-            'items' => $items,
+            'pages' => $pages,
             'profile' => $profile,
-            'skipSlots' => $skipSlots,
             'libraryName' => $libraryName,
         ])->render();
 
@@ -59,8 +64,34 @@ final class PrintService
     }
 
     /**
-     * Generate book cards PDF.
+     * @return array<int, array{items: Collection, skipSlots: int}>
      */
+    public static function paginateStickerItems(Collection $items, int $slotsPerPage, int $skipSlots = 0): array
+    {
+        if ($slotsPerPage < 1) {
+            throw new RuntimeException('Sticker profile must contain at least one slot per page.');
+        }
+
+        $skipSlots = max(0, min($skipSlots, $slotsPerPage - 1));
+        $remainingItems = $items->values();
+        $pages = [];
+        $firstPageCapacity = $slotsPerPage - $skipSlots;
+
+        if ($remainingItems->isEmpty()) {
+            return [['items' => collect(), 'skipSlots' => $skipSlots]];
+        }
+
+        $firstPageItems = $remainingItems->splice(0, $firstPageCapacity);
+        $pages[] = ['items' => $firstPageItems, 'skipSlots' => $skipSlots];
+
+        foreach ($remainingItems->chunk($slotsPerPage) as $pageItems) {
+            $pages[] = ['items' => $pageItems->values(), 'skipSlots' => 0];
+        }
+
+        return $pages;
+    }
+
+
     public function generateBookCards(Collection $items): string
     {
         $settings = GeneralSetting::find(1);

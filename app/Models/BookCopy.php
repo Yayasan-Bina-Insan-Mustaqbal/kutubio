@@ -11,7 +11,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Str;
 
-#[Fillable(['book_id', 'tracking_code', 'qr_payload', 'status', 'location_note', 'acquired_at', 'deletion_reason'])]
+#[Fillable(['book_id', 'tracking_code', 'qr_payload', 'status', 'funding_source', 'purchase_year', 'location_note', 'acquired_at', 'deletion_reason'])]
 class BookCopy extends Model
 {
     /** @use HasFactory<BookCopyFactory> */
@@ -19,6 +19,8 @@ class BookCopy extends Model
 
     protected $attributes = [
         'status' => BookCopyStatus::Draft->value,
+        'funding_source' => 'self',
+        'purchase_year' => 'Old Collection',
     ];
 
     protected static function booted(): void
@@ -37,45 +39,19 @@ class BookCopy extends Model
         return $this->belongsTo(Book::class);
     }
 
-    /**
-     * Get the funding source of the book copy from the capture metadata.
-     */
     public function getFundingSourceAttribute(): string
     {
-        if (! $this->book_id) {
-            return 'Self-Fund';
-        }
-
-        $revision = $this->book->metadataRevisions()
-            ->where('source_stage', 'capture_page')
-            ->latest()
-            ->first();
-
-        $source = $revision?->payload['funding_source'] ?? 'self';
-
-        return $source === 'BOSP' || $source === 'BOS' ? 'BOSP (Gov-Fund)' : 'Self-Fund';
+        return in_array($this->attributes['funding_source'] ?? 'self', ['BOSP', 'BOS', 'BOSP (Gov-Fund)'], true)
+            ? 'BOSP (Gov-Fund)'
+            : 'Self-Fund';
     }
 
-    /**
-     * Get the purchase year of the book copy from the capture metadata.
-     */
     public function getPurchaseYearAttribute(): string
     {
-        if (! $this->book_id) {
-            return 'Old Collection';
-        }
-
-        $revision = $this->book->metadataRevisions()
-            ->where('source_stage', 'capture_page')
-            ->latest()
-            ->first();
-
-        return $revision?->payload['purchase_year'] ?? 'Old Collection';
+        return (string) ($this->attributes['purchase_year'] ?? 'Old Collection');
     }
 
-    /**
-     * @return array<string, string>
-     */
+
     protected function casts(): array
     {
         return [

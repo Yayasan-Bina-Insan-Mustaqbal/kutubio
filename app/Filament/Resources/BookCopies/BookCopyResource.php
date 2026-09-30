@@ -16,6 +16,7 @@ use BackedEnum;
 use Filament\Actions\Action;
 use Filament\Actions\BulkAction;
 use Filament\Actions\DeleteAction;
+use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\ForceDeleteAction;
 use Filament\Actions\RestoreAction;
 use Filament\Forms\Components\Select;
@@ -172,6 +173,9 @@ class BookCopyResource extends Resource
                             URL::signedRoute('download.temp', ['filename' => $filename, 'name' => $originalName])
                         );
                     }),
+                DeleteBulkAction::make()
+                    ->label('Delete Selected')
+                    ->authorizeIndividualRecords(false),
             ]);
     }
 
