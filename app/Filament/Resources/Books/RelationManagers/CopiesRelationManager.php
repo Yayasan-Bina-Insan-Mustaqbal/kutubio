@@ -65,6 +65,19 @@ class CopiesRelationManager extends RelationManager
                         'Old Collection' => 'Old Collection',
                     ] + collect(range(2023, 2030))->mapWithKeys(fn (int $year): array => [(string) $year => (string) $year])->all())
                     ->required(),
+                Select::make('funding_source')
+                    ->label('Funding Source')
+                    ->options([
+                        'self' => 'Self-Fund',
+                        'BOSP' => 'BOSP (Gov-Fund)',
+                    ])
+                    ->required(),
+                Select::make('purchase_year')
+                    ->label('Year of Purchase')
+                    ->options([
+                        'Old Collection' => 'Old Collection',
+                    ] + collect(range(2023, 2030))->mapWithKeys(fn (int $year): array => [(string) $year => (string) $year])->all())
+                    ->required(),
                 TextInput::make('tracking_code')
                     ->maxLength(255),
                 DatePicker::make('acquired_at'),

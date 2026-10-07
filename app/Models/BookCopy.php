@@ -130,7 +130,6 @@ class BookCopy extends Model
         return (string) $value;
     }
 
-
     protected function casts(): array
     {
         return [
