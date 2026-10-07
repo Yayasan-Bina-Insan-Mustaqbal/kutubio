@@ -64,6 +64,58 @@ class BookCopyResource extends Resource
     {
         return BookCopiesTable::configure($table)
             ->actions([
+                Action::make('edit_copy')
+                    ->label('Edit')
+                    ->icon('heroicon-o-pencil-square')
+                    ->iconButton()
+                    ->fillForm(fn (BookCopy $record): array => [
+                        'public_id' => $record->public_id,
+                        'status' => $record->status->value,
+                        'funding_source' => BookCopy::normalizeStoredValue('funding_source', $record->getRawOriginal('funding_source')),
+                        'purchase_year' => $record->getRawOriginal('purchase_year') ?? 'Old Collection',
+                        'tracking_code' => $record->getRawOriginal('tracking_code'),
+                        'qr_payload' => $record->qr_payload,
+                        'acquired_at' => $record->getRawOriginal('acquired_at'),
+                        'location_note' => $record->getRawOriginal('location_note'),
+                    ])
+                    ->schema([
+                        Grid::make(2)
+                            ->schema([
+                                TextInput::make('public_id')
+                            ->label('Public ID')
+                            ->default(fn (BookCopy $record): string => $record->public_id)
+                            ->disabled()
+                            ->dehydrated(false),
+                        Select::make('status')
+                            ->options(fn (BookCopy $record): array => collect(BookCopyStatus::cases())
+                                ->reject(fn (BookCopyStatus $status): bool => $status === BookCopyStatus::Borrowed && $record->status !== BookCopyStatus::Borrowed)
+                                ->mapWithKeys(fn (BookCopyStatus $status): array => [$status->value => $status->getLabel() ?? $status->value])
+                                ->all())
+                            ->default(fn (BookCopy $record): string => $record->status->value)
+                            ->disabled(fn (BookCopy $record): bool => $record->status === BookCopyStatus::Borrowed)
+                            ->dehydrated(fn (BookCopy $record): bool => $record->status !== BookCopyStatus::Borrowed)
+                            ->required(),
+                        Select::make('funding_source')
+                            ->label('Funding Source')
+                            ->options(['self' => 'Self-Fund', 'BOSP' => 'BOSP (Gov-Fund)'])
+                            ->default(fn (BookCopy $record): ?string => BookCopy::normalizeStoredValue('funding_source', $record->getRawOriginal('funding_source')))
+                            ->required(),
+                        Select::make('purchase_year')
+                            ->label('Year of Purchase')
+                            ->options(['Old Collection' => 'Old Collection'] + collect(range(2023, 2030))->mapWithKeys(fn (int $year): array => [(string) $year => (string) $year])->all())
+                            ->default(fn (BookCopy $record): ?string => $record->getRawOriginal('purchase_year') ?? 'Old Collection')
+                            ->required(),
+                        TextInput::make('tracking_code')->maxLength(255),
+                        TextInput::make('qr_payload')->disabled()->dehydrated(false),
+                        DatePicker::make('acquired_at'),
+                                Textarea::make('location_note')->rows(3)->columnSpanFull(),
+                            ]),
+                    ])
+                    ->action(function (BookCopy $record, array $data): void {
+                        $updates = collect($data)->only(['funding_source', 'purchase_year', 'tracking_code', 'acquired_at', 'location_note', 'status'])->all();
+                        $record->applyBulkUpdates($updates);
+                        Notification::make()->title('Book copy updated')->success()->send();
+                    }),
                 Action::make('print_sticker')
                     ->label('Print Sticker')
                     ->icon('heroicon-o-printer')
@@ -157,8 +209,11 @@ class BookCopyResource extends Resource
                     ->schema([
                         Grid::make(2)
                             ->schema([
+                        Grid::make(2)
+                            ->schema([
                                 TextInput::make('public_ids')
                                     ->label('Public ID')
+                                    ->default(fn (BulkAction $action): string => $action->getSelectedRecords()->pluck('public_id')->implode(', '))
                                     ->disabled()
                                     ->dehydrated(false)
                                     ->columnSpanFull(),
@@ -181,11 +236,13 @@ class BookCopyResource extends Resource
                                 TextInput::make('tracking_code')->label('Tracking Code')->maxLength(255),
                                 TextInput::make('qr_payload')
                                     ->label('QR Payload')
+                                    ->default(fn (BulkAction $action): string => $action->getSelectedRecords()->pluck('qr_payload')->implode(', '))
                                     ->disabled()
                                     ->dehydrated(false)
                                     ->columnSpanFull(),
                                 DatePicker::make('acquired_at')->label('Acquired At'),
                                 Textarea::make('location_note')->label('Location Note')->columnSpanFull(),
+                            ]),
                             ]),
                     ])
                     ->authorizeIndividualRecords(false)
