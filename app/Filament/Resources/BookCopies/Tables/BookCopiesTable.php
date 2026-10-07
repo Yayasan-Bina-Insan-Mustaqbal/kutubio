@@ -3,8 +3,6 @@
 namespace App\Filament\Resources\BookCopies\Tables;
 
 use App\Enums\BookCopyStatus;
-use Filament\Actions\EditAction;
-use Filament\Actions\ViewAction;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
@@ -48,10 +46,7 @@ class BookCopiesTable
                 \Filament\Tables\Filters\TrashedFilter::make()
                     ->visible(fn () => auth()->user()->isAdmin()),
             ])
-            ->recordActions([
-                ViewAction::make()->iconButton(),
-                EditAction::make()->iconButton(),
-            ])
+            ->recordActions([])
             ->toolbarActions([]);
     }
 }

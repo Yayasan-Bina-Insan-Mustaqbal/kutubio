@@ -35,6 +35,8 @@ class LoanRecap extends TableWidget
             ->query(
                 Loan::query()
                     ->whereIn('status', [LoanStatus::Active, 'borrowed'])
+                    ->whereHas('borrower')
+                    ->whereHas('bookCopy.book')
                     ->with(['borrower', 'bookCopy.book'])
                     ->orderBy('due_at', 'asc')
             )
@@ -67,6 +69,7 @@ class LoanRecap extends TableWidget
                     ->label('Copy')
                     ->icon('heroicon-m-clipboard')
                     ->color('success')
+                    ->hidden(fn (?Loan $record): bool => ! $record?->borrower || ! $record?->bookCopy?->book)
                     ->extraAttributes(fn (?Loan $record): array => [
                         'onclick' => $record ? "
                             const text = this.getAttribute('data-reminder');
@@ -77,11 +80,13 @@ class LoanRecap extends TableWidget
                                     .send();
                             });
                         " : "",
-                        'data-reminder' => $record ? "Assalamu'alaikum, this is a reminder for {$record->borrower->name} " .
-                                           ($record->borrower->class ? "({$record->borrower->class}) " : "") .
-                                           "to return the book \"{$record->bookCopy->book->title}\" which " .
-                                           ($record->due_at->isPast() ? "was due on " : "is due on ") .
-                                           $record->due_at->format('d M Y') . ". Thank you." : "",
+                        'data-reminder' => $record && $record->borrower && $record->bookCopy && $record->bookCopy->book
+                            ? "Assalamu'alaikum, this is a reminder for {$record->borrower->name} " .
+                                ($record->borrower->class ? "({$record->borrower->class}) " : "") .
+                                "to return the book \"{$record->bookCopy->book->title}\" which " .
+                                ($record->due_at->isPast() ? "was due on " : "is due on ") .
+                                $record->due_at->format('d M Y') . ". Thank you."
+                            : '',
                     ]),
             ])
             ->bulkActions([

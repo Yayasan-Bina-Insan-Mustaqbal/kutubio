@@ -134,6 +134,72 @@ class LibraryFoundationTest extends TestCase
         $this->assertTrue($revision->is($book->fresh()->approvedMetadataRevision));
     }
 
+    public function test_uniform_stored_value_normalizes_funding_keys_and_returns_null_for_mixed_values(): void
+    {
+        $book = Book::factory()->create();
+        $localCopy = BookCopy::factory()->create([
+            'book_id' => $book->id,
+            'funding_source' => 'self',
+        ]);
+        $secondLocalCopy = BookCopy::factory()->create([
+            'book_id' => $book->id,
+            'funding_source' => 'Self-Fund',
+        ]);
+        $governmentCopy = BookCopy::factory()->create([
+            'book_id' => $book->id,
+            'funding_source' => 'BOSP',
+        ]);
+
+        $this->assertSame('self', BookCopy::uniformStoredValue(collect([$localCopy, $secondLocalCopy]), 'funding_source'));
+        $this->assertNull(BookCopy::uniformStoredValue(collect([$localCopy, $governmentCopy]), 'funding_source'));
+    }
+
+    public function test_bulk_update_preserves_borrowed_status_and_unselected_fields(): void
+    {
+        $book = Book::factory()->create();
+        $borrowedCopy = BookCopy::factory()->create([
+            'book_id' => $book->id,
+            'status' => \App\Enums\BookCopyStatus::Borrowed,
+            'funding_source' => 'self',
+            'purchase_year' => '2024',
+        ]);
+        $availableCopy = BookCopy::factory()->create([
+            'book_id' => $book->id,
+            'status' => \App\Enums\BookCopyStatus::Available,
+            'funding_source' => 'self',
+            'purchase_year' => '2024',
+        ]);
+
+        $borrowedCopy->applyBulkUpdates([
+            'funding_source' => 'BOSP',
+            'status' => \App\Enums\BookCopyStatus::Available->value,
+        ], \App\Enums\BookCopyStatus::Available);
+        $availableCopy->applyBulkUpdates(['funding_source' => 'BOSP'], \App\Enums\BookCopyStatus::Available);
+
+        $this->assertSame(\App\Enums\BookCopyStatus::Borrowed, $borrowedCopy->fresh()->status);
+        $this->assertSame(\App\Enums\BookCopyStatus::Available, $availableCopy->fresh()->status);
+        $this->assertSame('BOSP (Gov-Fund)', $borrowedCopy->fresh()->funding_source);
+        $this->assertSame('2024', $borrowedCopy->fresh()->purchase_year);
+    }
+
+    public function test_copy_fields_are_independently_persisted(): void
+    {
+        $book = Book::factory()->create();
+        $copy = BookCopy::factory()->create([
+            'book_id' => $book->id,
+            'funding_source' => 'BOSP',
+            'purchase_year' => '2025',
+        ]);
+
+        $copy->update(['tracking_code' => 'TRACK-01']);
+
+        $copy->refresh();
+
+        $this->assertSame('BOSP (Gov-Fund)', $copy->funding_source);
+        $this->assertSame('2025', $copy->purchase_year);
+        $this->assertSame('TRACK-01', $copy->tracking_code);
+    }
+
     public function test_book_copy_resolves_funding_source_and_purchase_year(): void
     {
         $book = Book::factory()->create();
