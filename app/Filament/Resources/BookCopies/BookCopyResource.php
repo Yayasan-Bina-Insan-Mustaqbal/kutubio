@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\BookCopies;
 
+use App\Enums\BookCopyStatus;
 use App\Filament\Resources\BookCopies\Pages\CreateBookCopy;
 use App\Filament\Resources\BookCopies\Pages\EditBookCopy;
 use App\Filament\Resources\BookCopies\Pages\ListBookCopies;
@@ -19,11 +20,14 @@ use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\ForceDeleteAction;
 use Filament\Actions\RestoreAction;
+use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
+use Filament\Schemas\Components\Grid;
+use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
@@ -131,6 +135,80 @@ class BookCopyResource extends Resource
                 ForceDeleteAction::make()->iconButton()->hidden(),
             ])
             ->bulkActions([
+                BulkAction::make('edit_selected')
+                    ->label('Edit Selected')
+                    ->icon('heroicon-o-pencil-square')
+                    ->fillForm(function (BulkAction $action): array {
+                        $records = $action->getSelectedRecords();
+                        $status = BookCopy::uniformStoredValue($records, 'status');
+
+                        return [
+                            'public_ids' => $records->pluck('public_id')->join(', '),
+                            'qr_payload' => $records->pluck('qr_payload')->join(', '),
+                            'status' => $status === BookCopyStatus::Borrowed->value ? null : $status,
+                            'funding_source' => BookCopy::uniformStoredValue($records, 'funding_source'),
+                            'purchase_year' => BookCopy::uniformStoredValue($records, 'purchase_year'),
+                            'tracking_code' => BookCopy::uniformStoredValue($records, 'tracking_code'),
+                            'acquired_at' => BookCopy::uniformStoredValue($records, 'acquired_at'),
+                            'location_note' => BookCopy::uniformStoredValue($records, 'location_note'),
+                        ];
+                    })
+                    ->accessSelectedRecords()
+                    ->schema([
+                        Grid::make(2)
+                            ->schema([
+                                TextInput::make('public_ids')
+                                    ->label('Public ID')
+                                    ->disabled()
+                                    ->dehydrated(false)
+                                    ->columnSpanFull(),
+                                Select::make('status')
+                                    ->label('Status')
+                                    ->options([
+                                        BookCopyStatus::Draft->value => BookCopyStatus::Draft->getLabel(),
+                                        BookCopyStatus::Available->value => BookCopyStatus::Available->getLabel(),
+                                        BookCopyStatus::Processing->value => BookCopyStatus::Processing->getLabel(),
+                                        BookCopyStatus::Lost->value => BookCopyStatus::Lost->getLabel(),
+                                        BookCopyStatus::Archived->value => BookCopyStatus::Archived->getLabel(),
+                                    ])
+                                    ->placeholder('Select status'),
+                                Select::make('funding_source')
+                                    ->label('Funding Source')
+                                    ->options(['self' => 'Self-Fund', 'BOSP' => 'BOSP (Gov-Fund)']),
+                                Select::make('purchase_year')
+                                    ->label('Year of Purchase')
+                                    ->options(['Old Collection' => 'Old Collection'] + collect(range(2023, 2030))->mapWithKeys(fn (int $year): array => [(string) $year => (string) $year])->all()),
+                                TextInput::make('tracking_code')->label('Tracking Code')->maxLength(255),
+                                TextInput::make('qr_payload')
+                                    ->label('QR Payload')
+                                    ->disabled()
+                                    ->dehydrated(false)
+                                    ->columnSpanFull(),
+                                DatePicker::make('acquired_at')->label('Acquired At'),
+                                Textarea::make('location_note')->label('Location Note')->columnSpanFull(),
+                            ]),
+                    ])
+                    ->authorizeIndividualRecords(false)
+                    ->action(function (Collection $records, array $data): void {
+                        $updates = collect($data)->only(['funding_source', 'purchase_year', 'tracking_code', 'acquired_at', 'location_note'])->filter(fn (mixed $value): bool => filled($value))->all();
+                        $availabilityStatus = filled($data['status'] ?? null) ? BookCopyStatus::from($data['status']) : null;
+
+                        foreach ($records as $record) {
+                            $record->applyBulkUpdates($updates, $availabilityStatus);
+                        }
+
+                        if ($updates === [] && $availabilityStatus === null) {
+                            Notification::make()->title('No fields changed')->warning()->send();
+
+                            return;
+                        }
+
+                        Notification::make()
+                            ->title('Selected copies updated')
+                            ->body('Borrowed copies were skipped for status changes.')
+                            ->success()
+                            ->send();
+                    }),
                 BulkAction::make('print_stickers')
                     ->label('Print Stickers')
                     ->icon('heroicon-o-printer')
