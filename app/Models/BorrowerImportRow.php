@@ -7,11 +7,11 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class BorrowerImportRow extends Model
 {
-    protected $fillable = ['borrower_import_id', 'row_number', 'raw_data', 'normalized_name', 'grade', 'section', 'matched_borrower_id', 'match_method', 'confidence', 'resolution_status', 'error_message'];
+    protected $fillable = ['borrower_import_id', 'row_number', 'raw_data', 'normalized_data', 'normalized_name', 'grade', 'section', 'matched_borrower_id', 'match_method', 'confidence', 'resolution_status', 'error_message'];
 
     protected function casts(): array
     {
-        return ['raw_data' => 'array', 'confidence' => 'decimal:4'];
+        return ['raw_data' => 'array', 'normalized_data' => 'array', 'confidence' => 'decimal:4'];
     }
 
     public function import(): BelongsTo

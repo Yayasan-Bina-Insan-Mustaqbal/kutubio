@@ -1,615 +1,504 @@
 <x-filament-panels::page>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/quagga/0.12.1/quagga.min.js" referrerpolicy="no-referrer"></script>
-    @vite(['resources/js/app.js'])
-    
-    <form wire:submit="submit" class="space-y-6">
-        <textarea id="frontImageData" wire:model.live="frontImageData" class="hidden"></textarea>
-        <input id="frontImageWidth" wire:model.live="frontImageWidth" type="hidden">
-        <input id="frontImageHeight" wire:model.live="frontImageHeight" type="hidden">
-        <input id="isbnBarcodeValue" wire:model.live="isbnBarcodeValue" type="hidden">
-        <input id="frontOcrTitle" wire:model.live="frontOcrTitle" type="hidden">
-        <input id="frontOcrSubtitle" wire:model.live="frontOcrSubtitle" type="hidden">
-        <input id="frontOcrAuthors" wire:model.live="frontOcrAuthors" type="hidden">
-        <input id="frontOcrPublisher" wire:model.live="frontOcrPublisher" type="hidden">
-        <input id="frontOcrText" wire:model.live="frontOcrText" type="hidden">
-        <input id="frontOcrConfidence" wire:model.live="frontOcrConfidence" type="hidden">
 
-        <div class="grid gap-4 lg:grid-cols-[minmax(0,1.35fr)_minmax(320px,0.65fr)]">
-            <!-- Left Side: Camera Viewport -->
-            <section class="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm dark:border-white/10 dark:bg-gray-900">
-                <div class="relative aspect-square w-full bg-black overflow-hidden">
-                    <!-- Main Video for Front Capture -->
-                    <video id="captureVideo" autoplay playsinline muted class="h-full w-full object-cover"></video>
-                    
-                    <!-- Quagga Scanner Container (Hidden by default) -->
-                    <div id="barcodeScanner" class="hidden h-full w-full object-cover [&>video]:h-full [&>video]:w-full [&>video]:object-cover [&>canvas]:absolute [&>canvas]:inset-0 [&>canvas]:h-full [&>canvas]:w-full"></div>
-                    
-                    <canvas id="mathCanvas" class="hidden"></canvas>
+    <style>
+        .capture-book-form {
+            width: 100%;
+            max-width: none;
+        }
 
-                    <!-- Professional Overlay Guides -->
-                    <div class="absolute inset-0 pointer-events-none border-[16px] border-black/10"></div>
-                    
-                    <!-- Scanner Overlay for Barcode mode -->
-                    <div id="scannerOverlay" class="absolute inset-x-8 top-1/3 bottom-1/3 border-2 border-dashed border-primary-500/50 transition-opacity duration-300 opacity-0 flex items-center justify-center">
-                        <div class="text-primary-500 font-mono text-[10px] uppercase tracking-widest bg-black/60 backdrop-blur-sm px-3 py-1.5 rounded-full border border-primary-500/30">
-                            Align Barcode
+        .capture-book-form .capture-book-layout {
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+            width: 100%;
+        }
+
+        .capture-book-form .capture-book-layout > section:first-child,
+        .capture-book-form .capture-book-layout > section:last-child {
+            min-width: 0;
+            width: 100%;
+        }
+
+        .capture-book-form .capture-book-camera-stage {
+            position: relative;
+            width: 100%;
+            min-height: 280px;
+            aspect-ratio: 4 / 3;
+            overflow: hidden;
+            background: #030712;
+        }
+
+        .capture-book-form .capture-book-camera-stage #barcodeScanner,
+        .capture-book-form .capture-book-camera-stage #barcodeScanner video {
+            position: absolute;
+            inset: 0;
+            display: block;
+            width: 100% !important;
+            height: 100% !important;
+            object-fit: contain !important;
+        }
+
+        @media (min-width: 1100px) {
+            .capture-book-form .capture-book-layout {
+                display: grid;
+                grid-template-columns: minmax(280px, 0.8fr) minmax(0, 1.7fr);
+                align-items: start;
+                gap: 1.5rem;
+            }
+
+            .capture-book-form .capture-book-layout > section:first-child {
+                position: sticky;
+                top: 1.5rem;
+            }
+
+            .capture-book-form .capture-book-camera-stage {
+                min-height: 320px;
+                max-height: 65vh;
+            }
+        }
+    </style>
+
+    <form wire:submit="submit" class="capture-book-form">
+        <div class="capture-book-layout">
+            <section class="min-w-0 space-y-4">
+                <div class="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-gray-900">
+                    <div class="mb-4 flex items-start justify-between gap-3">
+                        <div>
+                            <h2 class="text-sm font-bold uppercase tracking-wide text-gray-700 dark:text-gray-200">{{ $coverPanelVisible ? 'Book Cover' : 'ISBN Scanner' }}</h2>
+                            <p id="scannerStatus" role="status" aria-live="polite" class="mt-1 text-xs text-gray-500 dark:text-gray-400">{{ $coverPanelVisible ? 'Capture or replace this book cover.' : 'Starting camera…' }}</p>
                         </div>
                     </div>
-
-                    <!-- Stability Progress Bar -->
-                    <div id="stabilityContainer" class="absolute inset-x-12 top-1/2 -translate-y-1/2 hidden flex-col items-center gap-3">
-                        <div class="w-full h-1.5 bg-black/40 rounded-full overflow-hidden backdrop-blur-md border border-white/10">
-                            <div id="stabilityBar" class="h-full bg-primary-500 transition-all duration-100 ease-out shadow-[0_0_10px_rgba(var(--primary-500),0.5)]" style="width: 0%"></div>
+                    <div id="captureViewport" class="capture-book-camera-stage rounded-xl" data-mode="{{ $coverPanelVisible ? 'cover' : 'scanner' }}">
+                        <div id="barcodeScanner" class="absolute inset-0 overflow-hidden [&>video]:h-full [&>video]:w-full [&>video]:object-cover [&>canvas]:hidden"></div>
+                        <div id="scannerLoading" class="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-2 bg-gray-950 text-center text-sm text-gray-300">
+                            <x-heroicon-m-camera class="h-9 w-9 text-gray-500" />
+                            <span>Connecting to camera…</span>
+                            <span class="text-xs text-gray-500">Allow camera access when prompted.</span>
                         </div>
-                        <span id="timerVal" class="text-[10px] font-bold text-white uppercase tracking-widest drop-shadow-md">Stabilizing...</span>
-                    </div>
-
-                    <!-- Bottom Status Bar -->
-                    <div class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent p-5">
-                        <div class="flex items-center justify-between">
-                            <div id="statusIndicator" class="flex items-center gap-2.5">
-                                <div class="h-2 w-2 rounded-full bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.6)]"></div>
-                                <span class="text-[10px] font-bold text-white uppercase tracking-widest">Ready: Front</span>
-                                <span id="motionVal" class="ml-2 text-[9px] font-medium text-white/40 font-mono"></span>
+                        <video id="coverCameraVideo" class="absolute inset-0 hidden h-full w-full object-contain" autoplay playsinline></video>
+                        <canvas id="coverCaptureCanvas" class="hidden"></canvas>
+                        <div id="coverPreview" class="absolute inset-0 flex items-center justify-center bg-gray-50 dark:bg-gray-900 {{ $coverPanelVisible ? '' : 'hidden' }}">
+                            <img id="coverPreviewImage" src="{{ $coverDraftPreviewUrl ?? $matchedBookCoverUrl ?? asset('images/book-cover-placeholder.svg') }}" alt="Book cover preview" class="max-h-full w-full object-contain">
+                            @if ($coverDraft)
+                                <span class="absolute left-3 top-3 rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-900">Unsaved change</span>
+                            @endif
+                        </div>
+                        <div id="scannerGuide" class="pointer-events-none absolute inset-0 flex items-center justify-center {{ $coverPanelVisible ? 'hidden' : '' }}">
+                            <div class="relative h-24 w-[88%] rounded-lg border-2 border-amber-400/90 shadow-[0_0_0_999px_rgba(0,0,0,0.22)] sm:h-28">
+                                <span class="absolute inset-x-0 top-1/2 border-t border-dashed border-amber-300/80"></span>
                             </div>
-                            <div class="flex gap-2">
-                                <button type="button" id="switchCameraBtn" class="rounded-full bg-white/10 backdrop-blur-md p-2.5 text-white hover:bg-white/20 transition-colors border border-white/5">
-                                    <x-heroicon-m-arrow-path class="h-5 w-5" />
-                                </button>
-                            </div>
                         </div>
                     </div>
+                    <div class="mt-4 mb-2 grid grid-cols-2 gap-2 {{ $coverPanelVisible ? '' : 'hidden' }}">
+                        <button id="captureCoverButton" type="button" @disabled(! $coverPanelVisible) class="rounded-xl bg-primary-600 px-4 py-3 text-sm font-bold text-white hover:bg-primary-500 disabled:cursor-not-allowed disabled:opacity-50">{{ $coverDraft ? 'Retake Cover' : 'Capture Cover' }}</button>
+                    <label for="coverFileInput" class="mt-2 mb-2 cursor-pointer rounded-xl border border-gray-300 px-4 py-3 text-center text-sm font-bold text-gray-700 dark:border-white/20 dark:text-gray-200">Choose File</label>
+                    </div>
+                    <input id="coverFileInput" type="file" accept="image/jpeg,image/png,image/webp" aria-label="Choose cover image" class="hidden" wire:model="coverDraft" @disabled(! $coverPanelVisible)>
+                    <label id="coverFileName" for="coverFileInput" class="mt-2 hidden truncate text-center text-sm text-gray-600 dark:text-gray-300" aria-live="polite"></label>
+                    @error('coverDraft')
+                        <p class="mt-2 mb-2 text-xs font-semibold text-danger-600">{{ $message }}</p>
+                    @enderror
+                    <button id="restartBarcodeButton" type="button" wire:click="resetCapture" wire:loading.attr="disabled" wire:target="resetCapture" class="mt-2 w-full rounded-xl border border-primary-200 bg-primary-50 px-4 py-3 text-sm font-bold text-primary-700 hover:bg-primary-100 disabled:opacity-50 dark:border-primary-500/20 dark:bg-primary-500/10 dark:text-primary-300 {{ $coverPanelVisible ? '' : 'hidden' }}">Scan Another ISBN</button>
+                    <button id="rescanBarcodeButton" type="button" class="mt-4 flex w-full items-center justify-center gap-2 rounded-xl border border-primary-200 bg-primary-50 px-4 py-3 text-sm font-bold text-primary-700 hover:bg-primary-100 dark:border-primary-500/20 dark:bg-primary-500/10 dark:text-primary-300 {{ $coverPanelVisible ? 'hidden' : '' }}">
+                        <x-heroicon-m-arrow-path class="h-4 w-4" /> Restart / Rescan ISBN
+                    </button>
+                    <label for="isbnBarcodeInput" class="mb-2 mt-2 block text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">Or enter ISBN manually</label>
+                    <input id="isbnBarcodeInput" type="text" inputmode="numeric" pattern="[0-9]*" wire:model.live="isbnBarcodeValue" class="mb-2 mt-2 block w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-center font-mono text-lg font-bold tracking-[0.18em] dark:border-white/10 dark:bg-gray-800 dark:text-white" placeholder="ISBN-13" maxlength="13">
+                    @error('isbnBarcodeValue')
+                        <p class="mt-1 text-xs font-semibold text-danger-600">Enter a valid ISBN-13.</p>
+                    @enderror
+                    <button type="button" wire:click="lookupIsbn" wire:loading.attr="disabled" class="mt-3 w-full rounded-xl bg-primary-600 px-4 py-3 text-sm font-bold text-white hover:bg-primary-500 disabled:opacity-50">
+                        <span wire:loading.remove wire:target="lookupIsbn">Look Up ISBN</span>
+                        <span wire:loading wire:target="lookupIsbn">Searching catalog and provider…</span>
+                    </button>
+                </div>
+                <div class="rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-600 dark:border-white/10 dark:bg-gray-900 dark:text-gray-300">
+                    <span class="font-semibold">Lookup status:</span> {{ $metadataLookupMessage !== '' ? $metadataLookupMessage : 'Scan or enter an ISBN to search the local catalog and metadata provider.' }}
                 </div>
             </section>
 
-            <aside class="space-y-4" x-data="tokenSelector">
-                <!-- Book Title Section -->
-                <div class="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-gray-900">
-                    <label class="mb-3 block text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
-                        Book Title Extraction
-                    </label>
-
-                    <div class="space-y-4">
-                        <!-- Token Sentence Container -->
-                        <div class="flex min-h-[100px] flex-wrap content-start gap-1.5 rounded-xl border border-gray-100 bg-gray-50/50 p-4 text-base leading-relaxed dark:border-white/10 dark:bg-gray-800/50">
-                            <template x-if="! $wire.ocrTokens || $wire.ocrTokens.length === 0">
-                                <div class="flex flex-col items-center justify-center w-full py-4 text-center">
-                                    <x-heroicon-m-camera class="h-8 w-8 text-gray-300 dark:text-gray-600 mb-2" />
-                                    <span class="text-xs italic text-gray-400">Capture front cover...</span>
-                                </div>
-                            </template>
-                            <template x-for="(token, index) in $wire.ocrTokens" :key="'title-'+index">
-                                <span 
-                                    x-text="token"
-                                    x-on:click="toggleTitleToken(index)"
-                                    class="cursor-pointer select-none rounded-lg px-2 py-1 text-sm font-medium transition-all duration-200"
-                                    :class="isTitleSelected(index) ? 'bg-primary-500 text-white shadow-lg shadow-primary-500/30 scale-105' : 'bg-white border border-gray-100 text-gray-700 hover:border-primary-300 dark:bg-gray-800 dark:border-white/5 dark:text-gray-300 dark:hover:bg-gray-700'"
-                                ></span>
-                            </template>
+            <section class="min-w-0 space-y-5">
+                <div class="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-gray-900 sm:p-7">
+                    <div class="mb-6 flex flex-wrap items-center justify-between gap-3">
+                        <div>
+                            <h2 class="text-lg font-bold uppercase tracking-wide text-gray-800 dark:text-gray-100">Bibliographic Details</h2>
+                            <p class="text-sm text-gray-500 dark:text-gray-400">Review or enter the book details before saving.</p>
                         </div>
-
-                        <!-- Selected Title Preview -->
-                        <div class="rounded-xl border border-primary-100 bg-primary-50/30 p-4 dark:border-primary-900/20 dark:bg-primary-900/5">
-                            <p class="mb-1 text-[10px] font-bold uppercase tracking-widest text-primary-600 dark:text-primary-400">Selected Title</p>
-                            <p class="text-sm font-semibold text-gray-900 dark:text-white" :class="!$wire.bookTitle && 'italic font-normal text-gray-400'" x-text="$wire.bookTitle || 'Select title words...'"></p>
-                        </div>
+                        @if ($matchedBookId)
+                            <span class="inline-flex items-center gap-1.5 rounded-full border border-emerald-300 bg-emerald-100 px-3 py-1.5 text-xs font-bold text-emerald-900 shadow-sm dark:border-emerald-700 dark:bg-emerald-950 dark:text-emerald-200">
+                                <x-heroicon-m-check-circle class="h-4 w-4" aria-hidden="true" />
+                                Existing catalog book
+                            </span>
+                        @elseif ($metadataLookupState === 'external_match')
+                            <span class="inline-flex items-center gap-1.5 rounded-full border border-sky-300 bg-sky-100 px-3 py-1.5 text-xs font-bold text-sky-900 shadow-sm dark:border-sky-700 dark:bg-sky-950 dark:text-sky-200">
+                                <x-heroicon-m-information-circle class="h-4 w-4" aria-hidden="true" />
+                                Metadata found
+                            </span>
+                        @endif
                     </div>
-                </div>
-
-                <!-- Book Author Section -->
-                <div class="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-gray-900">
-                    <label class="mb-3 block text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
-                        Author Name Extraction
-                    </label>
-
-                    <div class="space-y-4">
-                        <!-- Token Sentence Container -->
-                        <div class="flex min-h-[100px] flex-wrap content-start gap-1.5 rounded-xl border border-gray-100 bg-gray-50/50 p-4 text-base leading-relaxed dark:border-white/10 dark:bg-gray-800/50">
-                            <template x-if="! $wire.ocrTokens || $wire.ocrTokens.length === 0">
-                                <div class="flex flex-col items-center justify-center w-full py-4 text-center">
-                                    <x-heroicon-m-user class="h-8 w-8 text-gray-300 dark:text-gray-600 mb-2" />
-                                    <span class="text-xs italic text-gray-400">Capture front cover...</span>
-                                </div>
-                            </template>
-                            <template x-for="(token, index) in $wire.ocrTokens" :key="'author-'+index">
-                                <span 
-                                    x-text="token"
-                                    x-on:click="toggleAuthorToken(index)"
-                                    class="cursor-pointer select-none rounded-lg px-2 py-1 text-sm font-medium transition-all duration-200"
-                                    :class="isAuthorSelected(index) ? 'bg-primary-500 text-white shadow-lg shadow-primary-500/30 scale-105' : 'bg-white border border-gray-100 text-gray-700 hover:border-primary-300 dark:bg-gray-800 dark:border-white/5 dark:text-gray-300 dark:hover:bg-gray-700'"
-                                ></span>
-                            </template>
-                        </div>
-
-                        <div class="rounded-xl border border-primary-100 bg-primary-50/30 p-4 dark:border-primary-900/20 dark:bg-primary-900/5">
-                            <p class="mb-1 text-[10px] font-bold uppercase tracking-widest text-primary-600 dark:text-primary-400">Selected Author</p>
-                            <p class="text-sm font-semibold text-gray-900 dark:text-white" :class="!$wire.bookAuthors && 'italic font-normal text-gray-400'" x-text="$wire.bookAuthors || 'Select author words...'"></p>
-                        </div>
-
-                        <button 
-                            type="button" 
-                            wire:click="resetCapture" 
-                            class="flex w-full items-center justify-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-xs font-bold text-gray-700 shadow-sm hover:bg-gray-50 transition-all dark:border-white/10 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
-                        >
-                            <x-heroicon-m-camera class="h-4 w-4" />
-                            <span>Re-capture Front Cover</span>
-                        </button>
-                    </div>
-                </div>
-
-                <!-- ISBN Section -->
-                <div class="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-gray-900">
-                    <div class="flex items-center justify-between mb-3">
-                        <label for="isbnBarcodeInput" class="block text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
-                            ISBN Barcode
+                    <div class="grid gap-x-6 gap-y-5 md:grid-cols-2">
+                        <label class="mt-2 block text-sm font-semibold text-gray-700 dark:text-gray-300">ISBN
+                            <input type="text" wire:model="isbnBarcodeValue" class="mt-2 w-full rounded-lg border-gray-300 bg-gray-50 px-3.5 py-3 font-mono dark:border-white/10 dark:bg-gray-800 dark:text-white" placeholder="Optional ISBN-13">
                         </label>
-                        <button type="button" x-on:click="$wire.isbnBarcodeValue = ''; document.getElementById('isbnBarcodeInput').value = '';" class="text-[10px] font-bold uppercase tracking-wider text-gray-400 hover:text-danger-500 transition-colors">
-                            Clear
-                        </button>
-                    </div>
-
-                    <div class="space-y-3">
-                        <button 
-                            type="button" 
-                            x-on:click="window.startBarcodeScanner()"
-                            class="flex w-full items-center justify-center gap-2 rounded-xl bg-primary-50 px-4 py-3 text-xs font-bold text-primary-700 shadow-sm hover:bg-primary-100 transition-all dark:bg-primary-500/10 dark:text-primary-400 dark:hover:bg-primary-500/20"
-                            x-show="! $wire.isbnBarcodeValue"
-                        >
-                            <x-heroicon-m-qr-code class="h-4 w-4" />
-                            Start Scanning ISBN
-                        </button>
-
-                        <input
-                            id="isbnBarcodeInput"
-                            type="text"
-                            inputmode="numeric"
-                            pattern="[0-9]*"
-                            wire:model.live="isbnBarcodeValue"
-                            class="block w-full rounded-xl border border-gray-200 bg-gray-50 font-mono text-lg font-bold tracking-[0.2em] shadow-sm focus:border-primary-500 focus:ring-primary-500 dark:border-white/10 dark:bg-gray-800 dark:text-white text-center"
-                            placeholder="SCAN OR ENTER ISBN"
-                            maxlength="13"
-                        >
-                        @error('isbnBarcodeValue')
-                            <p class="text-[10px] font-bold text-danger-600 dark:text-danger-400 uppercase tracking-wider">Invalid ISBN format</p>
-                        @enderror
-                    </div>
-                </div>
-
-                <!-- Quantity Section -->
-                <div class="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-gray-900">
-                    <label for="quantity" class="mb-3 block text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
-                        Quantity
-                    </label>
-                    <div class="flex items-center gap-4">
-                        <button type="button" x-on:click="$wire.quantity = Math.max(1, $wire.quantity - 1)" class="flex h-12 w-12 items-center justify-center rounded-xl border border-gray-200 bg-white text-gray-700 shadow-sm hover:bg-gray-50 transition-all dark:border-white/10 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700">
-                            <x-heroicon-m-minus class="h-6 w-6" />
-                        </button>
-                        <input type="number" id="quantity" wire:model.live="quantity" class="block w-full rounded-xl border border-gray-200 bg-gray-50 text-center text-xl font-bold dark:border-white/10 dark:bg-gray-800 dark:text-white" min="1">
-                        <button type="button" x-on:click="$wire.quantity = $wire.quantity + 1" class="flex h-12 w-12 items-center justify-center rounded-xl border border-gray-200 bg-white text-gray-700 shadow-sm hover:bg-gray-50 transition-all dark:border-white/10 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700">
-                            <x-heroicon-m-plus class="h-6 w-6" />
-                        </button>
-                    </div>
-                </div>
-
-                <!-- Funding Source Section -->
-                <div class="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-gray-900"
-                     x-data="{ 
-                         source: (localStorage.getItem('kutubio_last_funding_source') === 'BOS' ? 'BOSP' : localStorage.getItem('kutubio_last_funding_source')) || 'self',
-                         init() {
-                             this.$wire.set('fundingSource', this.source);
-                             this.$watch('source', value => {
-                                 localStorage.setItem('kutubio_last_funding_source', value);
-                                 this.$wire.set('fundingSource', value);
-                             });
-                         }
-                     }">
-                    <label class="mb-3 block text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
-                        Funding Source
-                    </label>
-                    <div class="relative flex rounded-xl bg-gray-100 p-1 dark:bg-gray-800">
-                        <!-- Slide Pill Indicator -->
-                        <div class="absolute bottom-1 top-1 left-1 w-[calc(50%-4px)] rounded-lg bg-white shadow-sm transition-all duration-300 ease-in-out dark:bg-gray-700"
-                             :class="source === 'BOSP' ? 'translate-x-full' : ''"></div>
-                             
-                        <button type="button" 
-                                @click="source = 'self'"
-                                class="relative z-10 w-1/2 py-2 text-center text-xs font-bold transition-colors duration-200"
-                                :class="source === 'self' ? 'text-primary-600 dark:text-primary-400' : 'text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white'">
-                            Self-Fund
-                        </button>
-                        
-                        <button type="button" 
-                                @click="source = 'BOSP'"
-                                class="relative z-10 w-1/2 py-2 text-center text-xs font-bold transition-colors duration-200"
-                                :class="source === 'BOSP' ? 'text-primary-600 dark:text-primary-400' : 'text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white'">
-                            BOSP (Gov-Fund)
-                        </button>
+                        <label class="mt-2 block text-sm font-semibold text-gray-700 dark:text-gray-300">Title <span class="text-danger-600">*</span>
+                            <input type="text" wire:model="bookTitle" class="mt-2 w-full rounded-lg border-gray-300 px-3.5 py-3 dark:border-white/10 dark:bg-gray-800 dark:text-white" placeholder="Book title" required>
+                            @error('bookTitle') <span class="mt-1 block text-xs text-danger-600">{{ $message }}</span> @enderror
+                        </label>
+                        <label class="m-2 block text-sm font-semibold text-gray-700 dark:text-gray-300">Subtitle
+                            <input type="text" wire:model="bookSubtitle" class="mt-2 w-full rounded-lg border-gray-300 px-3.5 py-3 dark:border-white/10 dark:bg-gray-800 dark:text-white" placeholder="Optional subtitle">
+                        </label>
+                        <label class="mt-2 block text-sm font-semibold text-gray-700 dark:text-gray-300">Author(s) <span class="text-danger-600">*</span>
+                            <input type="text" wire:model="bookAuthors" class="mt-2 w-full rounded-lg border-gray-300 px-3.5 py-3 dark:border-white/10 dark:bg-gray-800 dark:text-white" placeholder="Separate multiple authors with commas" required>
+                            @error('bookAuthors') <span class="mt-1 block text-xs text-danger-600">{{ $message }}</span> @enderror
+                        </label>
+                        <label class="mt-2 block text-sm font-semibold text-gray-700 dark:text-gray-300">Author Name Style
+                            <select wire:model="authorNameStyle" class="mt-2 w-full rounded-lg border-gray-300 px-3.5 py-3 dark:border-white/10 dark:bg-gray-800 dark:text-white">
+                                <option value="local">Local author (first name)</option>
+                                <option value="foreign">Foreign author (last name)</option>
+                            </select>
+                            @error('authorNameStyle') <span class="mt-1 block text-xs text-danger-600">{{ $message }}</span> @enderror
+                        </label>
+                        <label class="mt-2 block text-sm font-semibold text-gray-700 dark:text-gray-300">Category
+                            <div class="relative mt-2" x-data="{ open: false }" @click.outside="open = false" @keydown.escape.window="open = false">
+                                <button type="button" @click="open = ! open; if (open) $nextTick(() => $refs.categorySearch.focus())" aria-haspopup="listbox" aria-expanded="false" class="flex w-full items-center justify-between rounded-lg border border-gray-300 bg-white px-3.5 py-3 text-left font-normal dark:border-white/10 dark:bg-gray-800 dark:text-white">
+                                    <span>{{ $categoryId ? (collect($this->categoryOptions)->firstWhere('id', $categoryId)['label'] ?? 'Select category') : 'Uncategorized' }}</span>
+                                    <x-heroicon-m-chevron-down class="h-4 w-4 text-gray-500" />
+                                </button>
+                                <div x-cloak x-show="open" x-transition class="absolute z-50 mt-1 w-full rounded-lg border border-gray-200 bg-white shadow-lg dark:border-white/10 dark:bg-gray-800">
+                                    <div class="border-b border-gray-200 p-2 dark:border-white/10">
+                                        <input x-ref="categorySearch" type="search" wire:model.live.debounce.300ms="categorySearch" @click.stop placeholder="Search category name or DDC code" class="w-full rounded-md border-gray-300 px-3 py-2 text-sm dark:border-white/10 dark:bg-gray-900 dark:text-white">
+                                    </div>
+                                    <ul role="listbox" class="max-h-60 overflow-y-auto py-1">
+                                        <li>
+                                            <button type="button" wire:click="selectCategory(null)" @click="open = false" class="w-full px-3 py-2 text-left text-sm hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700">Uncategorized</button>
+                                        </li>
+                                        @forelse ($this->categoryOptions as $category)
+                                            <li wire:key="capture-category-{{ $category['id'] }}">
+                                                <button type="button" wire:click="selectCategory({{ $category['id'] }})" @click="open = false" class="w-full px-3 py-2 text-left text-sm hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700">{{ $category['label'] }}</button>
+                                            </li>
+                                        @empty
+                                            <li class="px-3 py-2 text-sm text-gray-500">No matching categories.</li>
+                                        @endforelse
+                                    </ul>
+                                </div>
+                            </div>
+                            @error('categoryId') <span class="mt-1 block text-xs text-danger-600">{{ $message }}</span> @enderror
+                        </label>
+                        <label class="mt-2 block text-sm font-semibold text-gray-700 dark:text-gray-300">Publisher
+                            <input type="text" wire:model="bookPublisher" class="mt-2 w-full rounded-lg border-gray-300 px-3.5 py-3 dark:border-white/10 dark:bg-gray-800 dark:text-white" placeholder="Optional publisher">
+                        </label>
+                        <label class="mt-2 block text-sm font-semibold text-gray-700 dark:text-gray-300">Page Count
+                            <input type="number" min="1" wire:model="bookPageCount" class="mt-2 w-full rounded-lg border-gray-300 px-3.5 py-3 dark:border-white/10 dark:bg-gray-800 dark:text-white" placeholder="Optional page count">
+                        </label>
                     </div>
                 </div>
 
-                <!-- Year of Purchase Section -->
-                <div class="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-gray-900"
-                     x-data="{
-                         selectedYear: localStorage.getItem('kutubio_last_purchase_year') || 'Old Collection',
-                         init() {
-                             this.$wire.set('purchaseYear', this.selectedYear);
-                             this.$watch('selectedYear', value => {
-                                 localStorage.setItem('kutubio_last_purchase_year', value);
-                                 this.$wire.set('purchaseYear', value);
-                             });
-                         }
-                     }">
-                    <label class="mb-3 block text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
-                        Year of Purchase
-                    </label>
-                    
-                    <div class="grid grid-cols-3 gap-2">
-                        <template x-for="year in ['Old Collection', '2023', '2024', '2025', '2026', '2027', '2028', '2029', '20230']" :key="year">
-                            <button type="button"
-                                    @click="selectedYear = year"
-                                    class="rounded-xl border py-2.5 text-center text-xs font-bold transition-all duration-200"
-                                    :class="selectedYear === year 
-                                        ? 'border-primary-500 bg-primary-50 text-primary-700 shadow-sm dark:bg-primary-500/10 dark:text-primary-400 dark:border-primary-500/30' 
-                                        : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300 hover:bg-gray-50 dark:border-white/10 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700'">
-                                <span x-text="year"></span>
-                            </button>
-                        </template>
+                <div class="mt-2 mb-2 rounded-2xl border border-gray-200 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-gray-900 sm:p-7">
+                    <div class="mb-5">
+                        <h2 class="text-lg font-bold uppercase tracking-wide text-gray-800 dark:text-gray-100">Copy Intake</h2>
+                        <p class="text-sm text-gray-500 dark:text-gray-400">Set quantity and acquisition details for the copies being added.</p>
+                    </div>
+                    <div class="grid gap-5 md:grid-cols-3">
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300">Quantity to Add</label>
+                            <input type="number" wire:model.live.number="quantity" min="0" step="1" inputmode="numeric" class="mt-2 h-12 w-full rounded-lg border border-gray-200 bg-gray-50 px-3 text-center text-lg font-bold dark:border-white/10 dark:bg-gray-800 dark:text-white">
+                            <p class="mt-2 text-xs text-gray-500">Enter 0 to save the catalog book without creating a copy.</p>
+                        </div>
+                        <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300">Funding Source
+                            <select wire:model="fundingSource" class="mt-2 w-full rounded-lg border-gray-300 px-3.5 py-3 dark:border-white/10 dark:bg-gray-800 dark:text-white">
+                                <option value="self">Self-Fund</option>
+                                <option value="BOSP">BOSP (Gov-Fund)</option>
+                            </select>
+                        </label>
+                        <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300">Year of Purchase
+                            <select wire:model="purchaseYear" class="mt-2 w-full rounded-lg border-gray-300 px-3.5 py-3 dark:border-white/10 dark:bg-gray-800 dark:text-white">
+                                @foreach (['Old Collection', '2023', '2024', '2025', '2026', '2027', '2028', '2029', '2030'] as $year)
+                                    <option value="{{ $year }}">{{ $year }}</option>
+                                @endforeach
+                            </select>
+                        </label>
                     </div>
                 </div>
 
-                <!-- Submit Section -->
-                <button 
-                    type="submit" 
-                    id="submitBtn" 
-                    x-bind:disabled="! ($wire.frontImageData && $wire.bookTitle)"
-                    class="group relative flex w-full items-center justify-center gap-3 overflow-hidden rounded-2xl bg-primary-600 px-6 py-5 text-sm font-bold text-white shadow-xl shadow-primary-500/25 transition-all hover:bg-primary-500 disabled:opacity-50 disabled:grayscale disabled:shadow-none"
-                >
-                    <div class="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000"></div>
+                <button type="submit" @disabled(blank($bookTitle)) class="flex w-full items-center justify-center gap-3 rounded-2xl bg-primary-600 px-6 py-4 text-sm font-bold text-white shadow-lg hover:bg-primary-500 disabled:cursor-not-allowed disabled:opacity-50">
                     <x-heroicon-m-check-circle class="h-5 w-5" />
-                    SUBMIT CAPTURE
+                    {{ $matchedBookId ? 'Save Book and Add Copies' : 'Save Book' }}
                 </button>
-
-                <!-- Help Section -->
-                <div class="rounded-xl bg-gray-50 p-4 dark:bg-white/5 border border-gray-100 dark:border-white/5">
-                    <p class="text-[10px] font-bold uppercase tracking-widest text-gray-400 dark:text-gray-500 mb-2">Instructions</p>
-                    <ul class="space-y-1.5 text-[10px] font-medium text-gray-500 dark:text-gray-400">
-                        <li class="flex items-start gap-2">
-                            <span class="flex-shrink-0 h-3.5 w-3.5 rounded-full bg-primary-500/10 text-primary-500 flex items-center justify-center text-[8px] font-bold">1</span>
-                            <span>Align the <strong>front cover</strong> for auto-capture.</span>
-                        </li>
-                        <li class="flex items-start gap-2">
-                            <span class="flex-shrink-0 h-3.5 w-3.5 rounded-full bg-primary-500/10 text-primary-500 flex items-center justify-center text-[8px] font-bold">2</span>
-                            <span>Pick the <strong>book title</strong> from extracted text.</span>
-                        </li>
-                        <li class="flex items-start gap-2">
-                            <span class="flex-shrink-0 h-3.5 w-3.5 rounded-full bg-primary-500/10 text-primary-500 flex items-center justify-center text-[8px] font-bold">3</span>
-                            <span>Scan the <strong>ISBN barcode</strong>.</span>
-                        </li>
-                    </ul>
-                </div>
-            </aside>
+            </section>
         </div>
     </form>
 
-    <canvas id="snapshotCanvas" class="hidden"></canvas>
-
     <script>
-        document.addEventListener('alpine:init', () => {
-            Alpine.data('tokenSelector', () => ({
-                selectedTitleTokens: [],
-                selectedAuthorTokens: [],
-                
-                init() {
-                    this.$watch('$wire.ocrTokens', (tokens) => {
-                        this.selectedTitleTokens = [];
-                        this.selectedAuthorTokens = [];
-                        this.$wire.bookTitle = '';
-                        this.$wire.bookAuthors = '';
-                        
-                        // Auto-reset if OCR failed but we have image
-                        if (this.$wire.frontImageData && (!tokens || tokens.length === 0)) {
-                            this.$wire.resetCapture();
-                        }
+        (() => {
+            let scannerRunning = false;
+            let scannerStarting = false;
+            let scannerFailed = false;
+            let scannerInitAttempts = 0;
+            let coverStream = null;
+            let coverDraftUrl = null;
+            const scannerElement = document.getElementById('barcodeScanner');
+            const isbnInput = document.getElementById('isbnBarcodeInput');
+            const scannerStatus = document.getElementById('scannerStatus');
+            const scannerLoading = document.getElementById('scannerLoading');
+            const coverPreview = document.getElementById('coverPreview');
+            const coverPreviewImage = document.getElementById('coverPreviewImage');
+            const coverVideo = document.getElementById('coverCameraVideo');
+            const coverCanvas = document.getElementById('coverCaptureCanvas');
+            const scannerGuide = document.getElementById('scannerGuide');
+            const rescanButton = document.getElementById('rescanBarcodeButton');
+            const restartButton = document.getElementById('restartBarcodeButton');
+            const captureButton = document.getElementById('captureCoverButton');
+            const coverFileInput = document.getElementById('coverFileInput');
+            let panelMode = document.getElementById('captureViewport')?.dataset.mode ?? 'scanner';
+            let pendingIsbn = null;
 
-                        if (window.refreshActions) window.refreshActions();
-                    });
-                },
-
-                toggleTitleToken(index) {
-                    if (this.selectedTitleTokens.includes(index)) {
-                        this.selectedTitleTokens = this.selectedTitleTokens.filter(i => i !== index);
-                    } else {
-                        this.selectedTitleTokens.push(index);
-                    }
-                    this.updateTitle();
-                },
-
-                toggleAuthorToken(index) {
-                    if (this.selectedAuthorTokens.includes(index)) {
-                        this.selectedAuthorTokens = this.selectedAuthorTokens.filter(i => i !== index);
-                    } else {
-                        this.selectedAuthorTokens.push(index);
-                    }
-                    this.updateAuthors();
-                },
-
-                isTitleSelected(index) {
-                    return this.selectedTitleTokens.includes(index);
-                },
-
-                isAuthorSelected(index) {
-                    return this.selectedAuthorTokens.includes(index);
-                },
-
-                updateTitle() {
-                    const sortedIndices = [...this.selectedTitleTokens].sort((a, b) => a - b);
-                    this.$wire.bookTitle = sortedIndices.map(i => this.$wire.ocrTokens[i]).join(' ');
-                    if (window.refreshActions) window.refreshActions();
-                },
-
-                updateAuthors() {
-                    const sortedIndices = [...this.selectedAuthorTokens].sort((a, b) => a - b);
-                    this.$wire.bookAuthors = sortedIndices.map(i => this.$wire.ocrTokens[i]).join(' ');
-                    if (window.refreshActions) window.refreshActions();
+            const stopCoverCamera = () => {
+                if (coverStream) {
+                    coverStream.getTracks().forEach(track => track.stop());
+                    coverStream = null;
                 }
-            }));
-        });
-
-        (function() {
-            if (window.kutubioCapturePageInitialized) return;
-            window.kutubioCapturePageInitialized = true;
-
-            const video = document.getElementById('captureVideo');
-            const barcodeScanner = document.getElementById('barcodeScanner');
-            const mathCanvas = document.getElementById('mathCanvas');
-            const mathContext = mathCanvas.getContext('2d', { willReadFrequently: true });
-            const snapshotCanvas = document.getElementById('snapshotCanvas');
-            const statusIndicator = document.getElementById('statusIndicator');
-            const scannerOverlay = document.getElementById('scannerOverlay');
-            const submitBtn = document.getElementById('submitBtn');
-            const switchCameraBtn = document.getElementById('switchCameraBtn');
-            const stabilityContainer = document.getElementById('stabilityContainer');
-            const stabilityBar = document.getElementById('stabilityBar');
-            const timerVal = document.getElementById('timerVal');
-            const motionVal = document.getElementById('motionVal');
-            const isbnBarcodeInput = document.getElementById('isbnBarcodeInput');
-
-            let lastPixels = null;
-            let stableFrames = 0;
-            let state = 'IDLE'; // IDLE -> MOVING -> STABILIZING -> CAPTURED
-            const FRAMES_TO_STABILIZE = 45; 
-            let loopId = null;
-            let stream = null;
-            let activeSide = 'front';
-            let quaggaStarted = false;
-            let currentFacingMode = 'environment';
-
-            const motionThresholdHigh = 22;
-            const motionThresholdLow = 8;
-
-            const updateStatus = (state) => {
-                const indicator = document.getElementById('statusIndicator');
-                if (!indicator) return;
-
-                const dot = indicator.querySelector('div');
-                const label = indicator.querySelector('span');
-                if (!dot || !label) return;
-
-                switch(state) {
-                    case 'IDLE':
-                        dot.className = 'h-2 w-2 rounded-full bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.6)]';
-                        label.innerText = activeSide === 'isbn' ? 'SCAN ISBN BARCODE' : 'READY: FRONT';
-                        scannerOverlay.classList.toggle('opacity-0', activeSide !== 'isbn');
-                        break;
-                    case 'STABILIZING':
-                        dot.className = 'h-2 w-2 rounded-full bg-yellow-500 animate-pulse shadow-[0_0_8px_rgba(234,179,8,0.6)]';
-                        label.innerText = 'STABILIZING...';
-                        break;
-                    case 'CAPTURING':
-                        dot.className = 'h-2 w-2 rounded-full bg-green-500 animate-ping shadow-[0_0_8px_rgba(34,197,94,0.6)]';
-                        label.innerText = 'CAPTURING!';
-                        break;
-                    case 'DONE':
-                        dot.className = 'h-2 w-2 rounded-full bg-success-500 shadow-[0_0_8px_rgba(var(--success-500),0.6)]';
-                        label.innerText = 'READY TO SUBMIT';
-                        scannerOverlay.classList.add('opacity-0');
-                        break;
-                }
+                if (coverVideo) coverVideo.srcObject = null;
+                coverVideo?.classList.add('hidden');
             };
 
-            const stopMotionLoop = () => { if (loopId) { cancelAnimationFrame(loopId); loopId = null; } };
-            const stopCameraStream = () => { if (stream) { stream.getTracks().forEach(track => track.stop()); stream = null; } };
-
-            const stopBarcodeScanner = () => {
-                if (!quaggaStarted || typeof Quagga === 'undefined') return;
-                Quagga.offDetected(handleBarcodeDetected);
-                Quagga.stop();
-                quaggaStarted = false;
-                const canvas = barcodeScanner.querySelector('canvas.drawingBuffer');
-                if (canvas) canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
+            const stopScanner = () => {
+                if (scannerRunning && window.Quagga) {
+                    Quagga.offDetected(onDetected);
+                    Quagga.stop();
+                    scannerRunning = false;
+                }
+                scannerStarting = false;
+                scannerElement?.querySelectorAll('video').forEach(video => video.srcObject?.getTracks().forEach(track => track.stop()));
             };
 
-            const normalizeBarcode = (value) => value.replace(/\D/g, '').slice(0, 13);
+            const showCoverPanel = () => {
+                panelMode = 'cover';
+                stopScanner();
+                scannerLoading?.classList.add('hidden');
+                scannerGuide?.classList.add('hidden');
+                coverPreview?.classList.remove('hidden');
+                rescanButton?.classList.add('hidden');
+                restartButton?.classList.remove('hidden');
+                if (scannerStatus) scannerStatus.textContent = 'Capture or replace this book cover.';
+            };
 
-            function handleBarcodeDetected(result) {
-                const code = normalizeBarcode(result?.codeResult?.code || '');
-                if (code.length < 10) return;
-                
-                @this.set('isbnBarcodeValue', code);
-                if (isbnBarcodeInput) isbnBarcodeInput.value = code;
-                stopBarcodeScanner();
-                refreshActions();
+            const stopCapture = () => {
+                stopScanner();
+                stopCoverCamera();
+            };
+
+            const setScannerUnavailable = message => {
+                scannerStarting = false;
+                scannerFailed = true;
+                scannerLoading?.classList.remove('hidden');
+                if (scannerLoading) {
+                    scannerLoading.innerHTML = `<div class="flex flex-col items-center justify-center gap-2 px-6 text-center text-gray-300"><span class="text-sm font-semibold">Camera unavailable</span><span class="text-xs text-gray-400">${message}</span><span class="text-xs text-gray-500">Check browser permission and use HTTPS or localhost.</span></div>`;
+                }
+                if (scannerStatus) scannerStatus.textContent = message;
+            };
+
+            function onDetected(result) {
+                const isbn = (result?.codeResult?.code ?? '').replace(/\D/g, '').slice(0, 13);
+                if (isbn.length !== 13) return;
+                if (panelMode === 'awaiting-cover') return;
+                stopScanner();
+                panelMode = 'awaiting-cover';
+                scannerLoading?.classList.remove('hidden');
+                if (scannerStatus) scannerStatus.textContent = 'ISBN found. Loading book and cover…';
+                if (isbnInput) {
+                    isbnInput.value = isbn;
+                    isbnInput.dispatchEvent(new Event('input', { bubbles: true }));
+                    isbnInput.dispatchEvent(new Event('change', { bubbles: true }));
+                }
+                pendingIsbn = isbn;
+                window.Livewire?.dispatch('capture-isbn-scanned', { isbn });
             }
 
-            window.startBarcodeScanner = () => {
-                activeSide = 'isbn';
-                stopMotionLoop();
-                stopCameraStream();
-
-                if (!barcodeScanner || typeof Quagga === 'undefined') {
-                    updateStatus('IDLE');
+            window.startBarcodeScanner = async () => {
+                if (!scannerElement || scannerRunning || scannerStarting || scannerFailed || panelMode === 'cover') return;
+                if (!window.Quagga) {
+                    scannerInitAttempts++;
+                    if (scannerInitAttempts < 20) setTimeout(window.startBarcodeScanner, 250);
+                    else setScannerUnavailable('Barcode scanner library did not load. Refresh the page or enter ISBN manually.');
                     return;
                 }
-
-                video.classList.add('hidden');
-                barcodeScanner.classList.remove('hidden');
-                updateStatus('IDLE');
-
-                if (quaggaStarted) { Quagga.stop(); quaggaStarted = false; }
-
+                if (!navigator.mediaDevices?.getUserMedia) {
+                    setScannerUnavailable('This browser does not provide camera access.');
+                    return;
+                }
+                scannerStarting = true;
+                scannerLoading?.classList.remove('hidden');
+                if (scannerStatus) scannerStatus.textContent = 'Requesting camera permission…';
+                try {
+                    const permissionStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' } } });
+                    permissionStream.getTracks().forEach(track => track.stop());
+                } catch (error) {
+                    setScannerUnavailable(error.name === 'NotAllowedError' ? 'Camera permission was denied.' : `Could not access camera: ${error.message || error.name}`);
+                    console.error('ISBN camera permission failed.', error);
+                    return;
+                }
                 Quagga.init({
                     inputStream: {
-                        name: 'Live',
+                        name: 'ISBN camera scanner',
                         type: 'LiveStream',
-                        target: barcodeScanner,
-                        constraints: {
-                            facingMode: currentFacingMode,
-                            width: { min: 640, ideal: 1280 },
-                            height: { min: 480, ideal: 720 },
-                        },
+                        target: scannerElement,
+                        constraints: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } },
                     },
-                    decoder: { readers: ['ean_reader', 'ean_8_reader'] },
+                    decoder: { readers: ['ean_reader'] },
                     locate: true,
-                    frequency: 10,
-                }, (error) => {
-                    if (error) { console.error(error); return; }
+                    frequency: 8,
+                }, error => {
+                    if (error) {
+                        setScannerUnavailable(error.message || 'Could not initialize ISBN camera scanner.');
+                        console.error('ISBN scanner initialization failed.', error);
+                        return;
+                    }
+                    Quagga.onDetected(onDetected);
                     Quagga.start();
-                    quaggaStarted = true;
-                    Quagga.onDetected(handleBarcodeDetected);
+                    scannerRunning = true;
+                    scannerFailed = false;
+                    scannerLoading?.classList.add('hidden');
+                    if (scannerStatus) scannerStatus.textContent = 'Camera active — point at an ISBN-13 barcode.';
                 });
             };
 
-            const captureSide = (side) => {
-                updateStatus('CAPTURING');
-                stabilityContainer.classList.add('hidden');
-                
-                const width = video.videoWidth;
-                const height = video.videoHeight;
-                snapshotCanvas.width = width;
-                snapshotCanvas.height = height;
-                snapshotCanvas.getContext('2d').drawImage(video, 0, 0, width, height);
-                
-                const dataUrl = snapshotCanvas.toDataURL('image/jpeg', 0.85);
-
-                if (side === 'front') {
-                    @this.set('frontImageData', dataUrl);
-                    @this.set('frontImageWidth', width);
-                    @this.set('frontImageHeight', height);
-                    @this.extractTitleFromFrontImage(false, dataUrl);
+            window.startCoverCamera = async () => {
+                stopScanner();
+                stopCoverCamera();
+                if (!navigator.mediaDevices?.getUserMedia || !coverVideo) {
+                    if (scannerStatus) scannerStatus.textContent = 'Camera unavailable. Choose an image file instead.';
+                    return;
                 }
-
-                refreshActions();
-            };
-
-            window.refreshActions = () => {
-                const hasFront = @this.get('frontImageData');
-                const hasTitle = @this.get('bookTitle');
-                const isReady = !!(hasFront && hasTitle);
-
-                // Note: submitBtn is now also handled by Alpine x-bind:disabled
-                const btn = document.getElementById('submitBtn');
-                if (btn) {
-                    btn.disabled = !isReady;
-                }
-
-                if (isReady) updateStatus('DONE');
-            };
-
-            const updateStability = () => {
-                if (!mathContext) return;
-                mathContext.drawImage(video, 0, 0, 160, 120);
-                const pixels = mathContext.getImageData(0, 0, 160, 120).data;
-                const currentPixels = [];
-                let totalDiff = 0;
-
-                for (let index = 0; index < pixels.length; index += 4) {
-                    const gray = (pixels[index] * 0.299) + (pixels[index + 1] * 0.587) + (pixels[index + 2] * 0.114);
-                    currentPixels.push(gray);
-                    if (lastPixels) totalDiff += Math.abs(gray - lastPixels[index/4]);
-                }
-
-                const avgDiff = lastPixels ? totalDiff / (pixels.length / 4) : 100;
-                lastPixels = currentPixels;
-                if (motionVal) motionVal.innerText = `Motion: ${avgDiff.toFixed(1)}`;
-
-                if (state === 'IDLE') {
-                    if (avgDiff > motionThresholdHigh) {
-                        state = 'MOVING';
-                        updateStatus('STABILIZING');
-                    }
-                } else if (state === 'MOVING' || state === 'STABILIZING') {
-                    if (avgDiff > motionThresholdLow) {
-                        state = 'MOVING';
-                        stableFrames = 0;
-                        stabilityContainer.classList.add('hidden');
-                    } else {
-                        state = 'STABILIZING';
-                        stableFrames++;
-                        const percent = Math.min((stableFrames / FRAMES_TO_STABILIZE) * 100, 100);
-                        if (stabilityBar) stabilityBar.style.width = percent + '%';
-                        if (timerVal) timerVal.innerText = `STABILIZING... ${Math.round(percent)}%`;
-                        
-                        if (stableFrames > 5) stabilityContainer.classList.remove('hidden');
-
-                        if (stableFrames >= FRAMES_TO_STABILIZE) {
-                            state = 'CAPTURED';
-                            if (!@this.get('frontImageData')) captureSide('front');
-                        }
-                    }
-                }
-
-                loopId = requestAnimationFrame(updateStability);
-            };
-
-            const startCamera = async (facingMode = 'environment') => {
-                stopCameraStream();
                 try {
-                    stream = await navigator.mediaDevices.getUserMedia({
-                        video: { facingMode, width: { ideal: 1280 }, height: { ideal: 960 } },
-                    });
-                    video.srcObject = stream;
-                    video.onloadedmetadata = () => {
-                        mathCanvas.width = 160; mathCanvas.height = 120;
-                        updateStatus('IDLE');
-                        loopId = requestAnimationFrame(updateStability);
-                    };
-                } catch (err) {
-                    console.error(err);
-                    statusIndicator.querySelector('span').innerText = "CAMERA ERROR";
+                    coverStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' }, width: { ideal: 1600 } }, audio: false });
+                    coverVideo.srcObject = coverStream;
+                    coverVideo.classList.remove('hidden');
+                    coverPreview?.classList.add('hidden');
+                    if (scannerStatus) scannerStatus.textContent = 'Camera active. Align the cover, then capture.';
+                    if (captureButton) captureButton.textContent = 'Take Photo';
+                } catch (error) {
+                    stopCoverCamera();
+                    coverPreview?.classList.remove('hidden');
+                    if (scannerStatus) scannerStatus.textContent = error.name === 'NotAllowedError' ? 'Camera permission denied. Choose an image file instead.' : `Camera unavailable: ${error.message || error.name}`;
                 }
             };
 
-            switchCameraBtn.addEventListener('click', () => {
-                currentFacingMode = currentFacingMode === 'environment' ? 'user' : 'environment';
-                if (activeSide === 'isbn') { stopBarcodeScanner(); startBarcodeScanner(); }
-                else startCamera(currentFacingMode);
-            });
-
-            if (isbnBarcodeInput) {
-                isbnBarcodeInput.addEventListener('input', () => {
-                    const normalized = normalizeBarcode(isbnBarcodeInput.value);
-                    if (isbnBarcodeInput.value !== normalized) {
-                        isbnBarcodeInput.value = normalized;
-                        @this.set('isbnBarcodeValue', normalized);
+            window.captureCoverPhoto = () => {
+                if (!coverVideo?.videoWidth || !coverVideo.videoHeight) return;
+                coverCanvas.width = Math.min(coverVideo.videoWidth, 1600);
+                coverCanvas.height = Math.round(coverVideo.videoHeight * (coverCanvas.width / coverVideo.videoWidth));
+                coverCanvas.getContext('2d').drawImage(coverVideo, 0, 0, coverCanvas.width, coverCanvas.height);
+                coverCanvas.toBlob(blob => {
+                    if (!blob || !coverFileInput) return;
+                    stopCoverCamera();
+                    if (coverDraftUrl) URL.revokeObjectURL(coverDraftUrl);
+                    const file = new File([blob], 'book-cover.jpg', { type: 'image/jpeg' });
+                    const transfer = new DataTransfer();
+                    transfer.items.add(file);
+                    coverFileInput.files = transfer.files;
+                    const coverFileName = document.getElementById('coverFileName');
+                    if (coverFileName) {
+                        coverFileName.textContent = file.name;
+                        coverFileName.classList.remove('hidden');
                     }
-                    refreshActions();
-                });
-            }
+                    coverDraftUrl = URL.createObjectURL(file);
+                    coverPreviewImage.src = coverDraftUrl;
+                    coverPreview?.classList.remove('hidden');
+                    if (captureButton) captureButton.textContent = 'Retake Cover';
+                    if (scannerStatus) scannerStatus.textContent = 'Cover captured. Save Book to apply it.';
+                    coverFileInput.dispatchEvent(new Event('change', { bubbles: true }));
+                }, 'image/jpeg', 0.85);
+            };
 
-            startCamera();
+            window.restartBarcodeScanner = () => {
+                stopCapture();
+                panelMode = 'scanner';
+                pendingIsbn = null;
+                scannerFailed = false;
+                coverPreview?.classList.add('hidden');
+                coverPreviewImage.src = @js(asset('images/book-cover-placeholder.svg'));
+                scannerGuide?.classList.remove('hidden');
+                scannerLoading?.classList.remove('hidden');
+                restartButton?.classList.add('hidden');
+                rescanButton?.classList.remove('hidden');
+                if (coverFileInput) coverFileInput.value = '';
+                const coverFileName = document.getElementById('coverFileName');
+                if (coverFileName) {
+                    coverFileName.textContent = '';
+                    coverFileName.classList.add('hidden');
+                }
+                if (coverDraftUrl) URL.revokeObjectURL(coverDraftUrl);
+                coverDraftUrl = null;
+                if (captureButton) captureButton.textContent = 'Capture Cover';
+                if (scannerStatus) scannerStatus.textContent = 'Starting camera…';
+                window.startBarcodeScanner();
+            };
 
-            document.addEventListener('livewire:navigating', () => {
-                stopMotionLoop(); stopCameraStream(); stopBarcodeScanner();
+            captureButton?.addEventListener('click', () => {
+                if (coverStream) window.captureCoverPhoto();
+                else window.startCoverCamera();
             });
 
-            window.addEventListener('capture-reset', () => {
-                activeSide = 'front'; state = 'MOVING'; stableFrames = 0; lastPixels = null;
-                stopBarcodeScanner();
-                barcodeScanner.classList.add('hidden');
-                video.classList.remove('hidden');
-                if (!stream) startCamera(currentFacingMode);
-                else { updateStatus('IDLE'); refreshActions(); }
+            restartButton?.addEventListener('click', () => window.restartBarcodeScanner());
+            rescanButton?.addEventListener('click', () => window.startBarcodeScanner());
+
+            coverFileInput?.addEventListener('change', () => {
+                stopCapture();
+                panelMode = 'cover';
+                const file = coverFileInput.files?.[0];
+                if (file) {
+                    if (coverDraftUrl) URL.revokeObjectURL(coverDraftUrl);
+                    coverDraftUrl = URL.createObjectURL(file);
+                    coverPreviewImage.src = coverDraftUrl;
+                    const coverFileName = document.getElementById('coverFileName');
+                    if (coverFileName) {
+                        coverFileName.textContent = file.name;
+                        coverFileName.classList.remove('hidden');
+                    }
+                }
+                showCoverPanel();
+                if (captureButton) captureButton.textContent = 'Retake Cover';
+                if (scannerStatus) scannerStatus.textContent = 'Cover selected. Save Book to apply it.';
             });
+
+            const initializeBarcodeScanner = () => {
+                const viewport = document.getElementById('captureViewport');
+                panelMode = viewport?.dataset.mode ?? 'scanner';
+                if (panelMode === 'cover') {
+                    showCoverPanel();
+                    return;
+                }
+                scannerFailed = false;
+                scannerLoading?.classList.remove('hidden');
+                if (scannerStatus) scannerStatus.textContent = 'Starting camera…';
+                window.startBarcodeScanner();
+            };
+
+            Livewire.on('cover-draft-updated', event => {
+                if (panelMode !== 'cover') return;
+                if (coverDraftUrl) return;
+                const previewUrl = event.url ?? event[0]?.url;
+                if (previewUrl) coverPreviewImage.src = previewUrl;
+                showCoverPanel();
+            });
+            Livewire.on('cover-panel-ready', () => {
+                const viewport = document.getElementById('captureViewport');
+                if (viewport?.dataset.mode !== 'cover') return;
+                if (pendingIsbn && isbnInput && isbnInput.value.replace(/\D/g, '') !== pendingIsbn) return;
+                pendingIsbn = null;
+                panelMode = 'cover';
+                showCoverPanel();
+            });
+            Livewire.on('cover-panel-reset', () => {
+                if (panelMode === 'scanner') return;
+                window.restartBarcodeScanner();
+            });
+            document.addEventListener('livewire:navigating', stopCapture);
+            document.addEventListener('livewire:navigated', () => setTimeout(initializeBarcodeScanner, 150));
+            document.addEventListener('livewire:init', () => setTimeout(initializeBarcodeScanner, 150), { once: true });
+            if (panelMode === 'cover') showCoverPanel();
+            else setTimeout(initializeBarcodeScanner, 250);
         })();
     </script>
 </x-filament-panels::page>

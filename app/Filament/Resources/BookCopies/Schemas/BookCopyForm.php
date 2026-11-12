@@ -34,6 +34,7 @@ class BookCopyForm
                                 'self' => 'Self-Fund',
                                 'BOSP' => 'BOSP (Gov-Fund)',
                             ])
+                            ->default(fn (?BookCopy $record): ?string => BookCopy::normalizeStoredValue('funding_source', $record?->getRawOriginal('funding_source') ?? 'self'))
                             ->placeholder('Select funding source')
                             ->formatStateUsing(fn (?string $state): ?string => BookCopy::normalizeStoredValue('funding_source', $state)),
                         Select::make('purchase_year')

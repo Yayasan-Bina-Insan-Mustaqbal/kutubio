@@ -2,6 +2,11 @@
 
 namespace App\Services;
 
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\View;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use JsonException;
 
@@ -19,9 +24,26 @@ class BookCoverOcrService
      */
     public function extractFromStoragePath(string $imagePath): array
     {
-        return $this->metadataFromResponse(
-            $this->ollama->extractFromImage($imagePath, $this->prompt()),
-        );
+        $startedAt = hrtime(true);
+        $ocrImage = $this->optimizedOcrImage(Storage::disk('public')->get($imagePath));
+        $temporaryPath = 'temp/ocr-'.Str::uuid().'.png';
+        Storage::disk('public')->put($temporaryPath, $ocrImage);
+
+        try {
+            $result = $this->metadataFromResponse(
+                $this->ollama->extractFromImage($temporaryPath, $this->prompt()),
+            );
+
+            Log::info('Book cover OCR completed.', [
+                'source_bytes' => Storage::disk('public')->size($imagePath),
+                'ocr_bytes' => strlen($ocrImage),
+                'duration_ms' => (int) ((hrtime(true) - $startedAt) / 1_000_000),
+            ]);
+
+            return $result;
+        } finally {
+            Storage::disk('public')->delete($temporaryPath);
+        }
     }
 
     /**
@@ -29,9 +51,23 @@ class BookCoverOcrService
      */
     public function extractFromDataUrl(string $dataUrl): array
     {
-        return $this->metadataFromResponse(
-            $this->ollama->extractFromImageBytes($this->decodeImageDataUrl($dataUrl), $this->prompt()),
-        );
+        return $this->previewFromDataUrl($dataUrl);
+    }
+    public function previewFromDataUrl(string $dataUrl): array
+    {
+        $startedAt = hrtime(true);
+        $imageBytes = $this->decodeImageDataUrl($dataUrl);
+        $ocrImage = $this->optimizedOcrImage($imageBytes);
+        $response = $this->ollama->extractFromImageBytes($ocrImage, $this->prompt());
+        $metadata = $this->metadataFromResponse($response);
+
+        Log::info('Book cover OCR preview completed.', [
+            'source_bytes' => strlen($imageBytes),
+            'ocr_bytes' => strlen($ocrImage),
+            'duration_ms' => (int) ((hrtime(true) - $startedAt) / 1_000_000),
+        ]);
+
+        return $metadata;
     }
 
     public function prompt(): string
@@ -138,6 +174,52 @@ PROMPT;
     private function isTitleLikeLine(string $line): bool
     {
         return $line === mb_strtoupper($line) && preg_match('/\pL/u', $line) === 1;
+    }
+
+    private function optimizedOcrImage(string $imageBytes): string
+    {
+        $sourceBytes = strlen($imageBytes);
+        $sourceImage = imagecreatefromstring($imageBytes);
+
+        if ($sourceImage === false) {
+            throw ValidationException::withMessages([
+                'image' => 'The capture image could not be decoded for OCR.',
+            ]);
+        }
+
+        $sourceWidth = imagesx($sourceImage);
+        $sourceHeight = imagesy($sourceImage);
+
+        if ($sourceWidth < 1 || $sourceHeight < 1) {
+            imagedestroy($sourceImage);
+
+            throw ValidationException::withMessages([
+                'image' => 'The capture image has invalid dimensions for OCR.',
+            ]);
+        }
+
+        $maxDimension = max(512, config('services.ollama.max_image_dimension', 1600));
+        $scale = min(1, $maxDimension / max($sourceWidth, $sourceHeight));
+        $targetWidth = max(1, (int) round($sourceWidth * $scale));
+        $targetHeight = max(1, (int) round($sourceHeight * $scale));
+        $targetImage = imagecreatetruecolor($targetWidth, $targetHeight);
+
+        imagecopyresampled($targetImage, $sourceImage, 0, 0, 0, 0, $targetWidth, $targetHeight, $sourceWidth, $sourceHeight);
+        ob_start();
+        imagepng($targetImage, null, 6);
+        $optimizedImage = (string) ob_get_clean();
+
+        imagedestroy($sourceImage);
+        imagedestroy($targetImage);
+
+        Log::debug('Prepared resized OCR image.', [
+            'source_bytes' => $sourceBytes,
+            'ocr_bytes' => strlen($optimizedImage),
+            'source_dimensions' => "{$sourceWidth}x{$sourceHeight}",
+            'ocr_dimensions' => "{$targetWidth}x{$targetHeight}",
+        ]);
+
+        return $optimizedImage;
     }
 
     private function decodeImageDataUrl(string $dataUrl): string

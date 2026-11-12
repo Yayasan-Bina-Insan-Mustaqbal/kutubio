@@ -6,7 +6,7 @@
     "keywords": ["laravel", "framework"],
     "license": "MIT",
     "require": {
-        "php": "^8.3",
+        "php": "^8.4",
         "bacon/bacon-qr-code": "3.1.1 as 2.0.0",
         "filament/filament": "^5.0",
         "laravel/fortify": "^1.34",

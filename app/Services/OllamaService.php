@@ -40,9 +40,12 @@ class OllamaService
      */
     public function extractFromImageBytes(string $imageBytes, string $prompt): array
     {
-        Log::info("OllamaService: Requesting extraction with model {$this->model}");
+        Log::info("OllamaService: Requesting extraction with model {$this->model}", [
+            'image_bytes' => strlen($imageBytes),
+        ]);
+        $startedAt = hrtime(true);
 
-        $response = Http::timeout(60)->post("{$this->baseUrl}/api/generate", [
+        $response = Http::timeout((int) config('services.ollama.timeout', 180))->post("{$this->baseUrl}/api/generate", [
             'model' => $this->model,
             'prompt' => $prompt,
             'images' => [base64_encode($imageBytes)],
@@ -56,7 +59,11 @@ class OllamaService
         }
 
         $result = $response->json();
-        Log::info('OllamaService: Received response: '.($result['response'] ?? 'EMPTY'));
+        Log::info('OllamaService: OCR response received.', [
+            'duration_ms' => (int) ((hrtime(true) - $startedAt) / 1_000_000),
+            'response_bytes' => strlen((string) ($result['response'] ?? '')),
+            'done_reason' => $result['done_reason'] ?? null,
+        ]);
 
         return $result;
     }

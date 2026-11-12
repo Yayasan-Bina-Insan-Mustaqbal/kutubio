@@ -1,10 +1,19 @@
 <?php
 
+use App\Http\Controllers\PublicBookCatalogController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Storage;
 
-Route::view('/', 'welcome')->name('home');
+Route::get('/', [PublicBookCatalogController::class, 'index'])->name('home');
+Route::get('/catalog/{book:public_id}', [PublicBookCatalogController::class, 'show'])->name('catalog.books.show');
+
+Route::get('/public-files/{path}', function (string $path) {
+    abort_unless(str_starts_with($path, 'book-covers/'), 404);
+    abort_unless(Storage::disk('public')->exists($path), 404);
+
+    return Storage::disk('public')->response($path);
+})->where('path', '.*')->name('storage.public');
 
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::view('dashboard', 'dashboard')->name('dashboard');
