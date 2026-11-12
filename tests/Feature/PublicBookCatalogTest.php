@@ -88,6 +88,11 @@ class PublicBookCatalogTest extends TestCase
             ->assertJsonPath('suggestions.0.title', 'Zulu Cooking Handbook');
         $this->assertStringNotContainsString('Zulu Cooking Handbook', $filteredFragment->json('results'));
 
+        $this->get(route('home', ['q' => 'ada author', 'fragment' => 1]))
+            ->assertOk()
+            ->assertJsonPath('count', 1)
+            ->assertJsonPath('suggestions.0.title', 'Zulu Cooking Handbook');
+
         $this->get(route('home', ['q' => 'Ada Author']))
             ->assertOk()
             ->assertSee('Zulu Cooking Handbook')
