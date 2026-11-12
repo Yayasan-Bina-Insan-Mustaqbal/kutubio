@@ -37,14 +37,14 @@ class PublicBookCatalogController extends Controller
 
         if ($searchTerm !== '') {
             $query->where(function ($books) use ($searchTerm): void {
-                $books->where('title', 'ilike', "%{$searchTerm}%")
-                    ->orWhere('subtitle', 'ilike', "%{$searchTerm}%")
-                    ->orWhere('authors_display', 'ilike', "%{$searchTerm}%")
-                    ->orWhere('isbn13', 'ilike', "%{$searchTerm}%")
-                    ->orWhere('publisher', 'ilike', "%{$searchTerm}%")
+                $books->where('title', 'like', "%{$searchTerm}%")
+                    ->orWhere('subtitle', 'like', "%{$searchTerm}%")
+                    ->orWhere('authors_display', 'like', "%{$searchTerm}%")
+                    ->orWhere('isbn13', 'like', "%{$searchTerm}%")
+                    ->orWhere('publisher', 'like', "%{$searchTerm}%")
                     ->orWhereHas('category', fn ($category) => $category
-                        ->where('label', 'ilike', "%{$searchTerm}%")
-                        ->orWhere('code', 'ilike', "%{$searchTerm}%"));
+                        ->where('label', 'like', "%{$searchTerm}%")
+                        ->orWhere('code', 'like', "%{$searchTerm}%"));
             });
         }
 
@@ -106,14 +106,14 @@ class PublicBookCatalogController extends Controller
         return Book::query()
             ->select(['public_id', 'title', 'isbn13'])
             ->where(function ($books) use ($searchTerm): void {
-                $books->where('title', 'ilike', "%{$searchTerm}%")
-                    ->orWhere('subtitle', 'ilike', "%{$searchTerm}%")
-                    ->orWhere('authors_display', 'ilike', "%{$searchTerm}%")
-                    ->orWhere('isbn13', 'ilike', "%{$searchTerm}%")
-                    ->orWhere('publisher', 'ilike', "%{$searchTerm}%")
+                $books->where('title', 'like', "%{$searchTerm}%")
+                    ->orWhere('subtitle', 'like', "%{$searchTerm}%")
+                    ->orWhere('authors_display', 'like', "%{$searchTerm}%")
+                    ->orWhere('isbn13', 'like', "%{$searchTerm}%")
+                    ->orWhere('publisher', 'like', "%{$searchTerm}%")
                     ->orWhereHas('category', fn ($category) => $category
-                        ->where('label', 'ilike', "%{$searchTerm}%")
-                        ->orWhere('code', 'ilike', "%{$searchTerm}%"));
+                        ->where('label', 'like', "%{$searchTerm}%")
+                        ->orWhere('code', 'like', "%{$searchTerm}%"));
             })
             ->orderBy('title')
             ->limit(6)

@@ -90,9 +90,9 @@ class CaptureBook extends Page
             ->when($search !== '', function ($query) use ($search): void {
                 $query->where(function ($categoryQuery) use ($search): void {
                     $categoryQuery
-                        ->where('label', 'ilike', "%{$search}%")
-                        ->orWhere('code', 'ilike', "%{$search}%")
-                        ->orWhere('short_label', 'ilike', "%{$search}%");
+                        ->where('label', 'like', "%{$search}%")
+                        ->orWhere('code', 'like', "%{$search}%")
+                        ->orWhere('short_label', 'like', "%{$search}%");
                 });
             })
             ->orderBy('sort_order')

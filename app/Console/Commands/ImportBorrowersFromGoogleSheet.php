@@ -114,7 +114,9 @@ class ImportBorrowersFromGoogleSheet extends Command
                 'identifier' => $expectedIdentifier,
             ];
             $normalizedName = $this->normalizeName($name);
-            $candidates = $normalizedName === '' ? collect() : Borrower::query()->whereRaw("lower(regexp_replace(name, '[^a-zA-Z0-9]+', '', 'g')) = ?", [$normalizedName])->get();
+            $candidates = $normalizedName === ''
+                ? collect()
+                : Borrower::query()->get()->filter(fn (Borrower $borrower): bool => $this->normalizeName($borrower->name) === $normalizedName)->values();
             $status = $name === '' || $grade === null || $section === null || $attendanceNumber === null
                 ? 'invalid'
                 : ($candidates->count() === 1 ? 'matched' : ($candidates->count() === 0 ? 'new' : 'needs_review'));
