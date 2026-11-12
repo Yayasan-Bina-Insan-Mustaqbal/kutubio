@@ -80,6 +80,68 @@ class LibraryFoundationTest extends TestCase
         ])->assertExitCode(\Illuminate\Console\Command::FAILURE);
     }
 
+    public function test_book_resolves_existing_front_cover_from_linked_capture_session(): void
+    {
+        \Illuminate\Support\Facades\Storage::fake('public');
+        $book = Book::factory()->create();
+        $captureSession = CaptureSession::factory()->create([
+            'front_image_path' => 'capture-sessions/cover-test/front.png',
+        ]);
+        \Illuminate\Support\Facades\Storage::disk('public')->put($captureSession->front_image_path, 'fake image bytes');
+
+        MetadataRevision::factory()->create([
+            'book_id' => $book->id,
+            'capture_session_id' => $captureSession->id,
+            'source_stage' => 'capture_page',
+            'payload' => ['front_image_path' => $captureSession->front_image_path],
+        ]);
+
+        $this->assertSame($captureSession->front_image_path, $book->coverImagePath());
+    }
+
+    public function test_book_cover_resolves_to_null_if_linked_capture_file_is_missing(): void
+    {
+        \Illuminate\Support\Facades\Storage::fake('public');
+        $book = Book::factory()->create();
+        $captureSession = CaptureSession::factory()->create([
+            'front_image_path' => 'capture-sessions/missing-cover/front.png',
+        ]);
+
+        MetadataRevision::factory()->create([
+            'book_id' => $book->id,
+            'capture_session_id' => $captureSession->id,
+            'source_stage' => 'capture_page',
+            'payload' => ['front_image_path' => $captureSession->front_image_path],
+        ]);
+
+        $this->assertNull($book->coverImagePath());
+    }
+
+    public function test_public_storage_route_serves_a_published_book_cover_without_storage_symlink(): void
+    {
+        \Illuminate\Support\Facades\Storage::fake('public');
+        $path = 'book-covers/public/cover.png';
+        \Illuminate\Support\Facades\Storage::disk('public')->put($path, 'fake image bytes');
+
+        $response = $this->get(route('storage.public', ['path' => $path]));
+
+        $response->assertOk()
+            ->assertHeader('content-type', 'image/png');
+
+        $this->assertSame('fake image bytes', $response->streamedContent());
+    }
+
+    public function test_cover_image_url_uses_configured_application_base_url(): void
+    {
+        \Illuminate\Support\Facades\URL::forceRootUrl('https://library.example.test/kutubio');
+        \Illuminate\Support\Facades\URL::forceScheme('https');
+
+        $this->assertSame(
+            'https://library.example.test/kutubio/images/book-cover-placeholder.svg',
+            \Illuminate\Support\Facades\URL::asset('images/book-cover-placeholder.svg'),
+        );
+    }
+
     public function test_category_import_preserves_ddc_codes_as_strings(): void
     {
         $this->seed(CategorySeeder::class);
@@ -212,7 +274,14 @@ class LibraryFoundationTest extends TestCase
             'funding_source' => 'BOSP',
         ]);
 
+        $sameFundingStyle = BookCopy::factory()->create([
+            'book_id' => $book->id,
+            'funding_source' => 'BOSP (Gov-Fund)',
+        ]);
+
+        $this->assertSame('self', BookCopy::uniformStoredValue(collect([$localCopy]), 'funding_source'));
         $this->assertSame('self', BookCopy::uniformStoredValue(collect([$localCopy, $secondLocalCopy]), 'funding_source'));
+        $this->assertSame('BOSP', BookCopy::uniformStoredValue(collect([$governmentCopy, $sameFundingStyle]), 'funding_source'));
         $this->assertNull(BookCopy::uniformStoredValue(collect([$localCopy, $governmentCopy]), 'funding_source'));
     }
 

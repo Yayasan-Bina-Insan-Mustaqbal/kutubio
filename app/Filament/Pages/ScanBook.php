@@ -27,9 +27,9 @@ class ScanBook extends Page implements HasForms
 
     protected string $view = 'filament.pages.scan-book';
 
-    protected static ?string $navigationLabel = 'Capture Book';
+    protected static ?string $navigationLabel = 'Scan Book';
 
-    public static ?string $title = 'Capture Book';
+    public static ?string $title = 'Scan Book';
 
     protected static string|UnitEnum|null $navigationGroup = 'Circulation';
 
