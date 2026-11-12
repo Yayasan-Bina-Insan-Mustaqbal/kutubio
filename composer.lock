@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "12a64097bbbf22a4cb60c9109bbecadc",
+    "content-hash": "d0fbee3b317c41e0ac1e6148d0ee8693",
     "packages": [
         {
             "name": "bacon/bacon-qr-code",
@@ -8305,12 +8305,12 @@
             "version": "v5.6.3",
             "source": {
                 "type": "git",
-                "url": "https://github.com/vlucas/phpdotenv.git",
+                "url": "https://github.com/phpdotenv/phpdotenv.git",
                 "reference": "955e7815d677a3eaa7075231212f2110983adecc"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/vlucas/phpdotenv/zipball/955e7815d677a3eaa7075231212f2110983adecc",
+                "url": "https://api.github.com/repos/phpdotenv/phpdotenv/zipball/955e7815d677a3eaa7075231212f2110983adecc",
                 "reference": "955e7815d677a3eaa7075231212f2110983adecc",
                 "shasum": ""
             },
@@ -9363,12 +9363,12 @@
             "version": "v1.0.4",
             "source": {
                 "type": "git",
-                "url": "https://github.com/nunomaduro/pao.git",
+                "url": "https://github.com/laravel/pao.git",
                 "reference": "abb05092e543e031b035058894ede0f5e7dbfecf"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/nunomaduro/pao/zipball/abb05092e543e031b035058894ede0f5e7dbfecf",
+                "url": "https://api.github.com/repos/laravel/pao/zipball/abb05092e543e031b035058894ede0f5e7dbfecf",
                 "reference": "abb05092e543e031b035058894ede0f5e7dbfecf",
                 "shasum": ""
             },
@@ -10911,12 +10911,12 @@
             "version": "v1.1.3",
             "source": {
                 "type": "git",
-                "url": "https://github.com/shipfastlabs/agent-detector.git",
+                "url": "https://github.com/laravel/agent-detector.git",
                 "reference": "0faef92b88c6680b3fc53c8f349ea868181d2484"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/shipfastlabs/agent-detector/zipball/0faef92b88c6680b3fc53c8f349ea868181d2484",
+                "url": "https://api.github.com/repos/laravel/agent-detector/zipball/0faef92b88c6680b3fc53c8f349ea868181d2484",
                 "reference": "0faef92b88c6680b3fc53c8f349ea868181d2484",
                 "shasum": ""
             },
@@ -11164,8 +11164,8 @@
     "prefer-stable": true,
     "prefer-lowest": false,
     "platform": {
-        "php": "^8.3"
+        "php": "^8.4"
     },
     "platform-dev": {},
-    "plugin-api-version": "2.9.0"
+    "plugin-api-version": "2.11.0"
 }
