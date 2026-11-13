@@ -316,7 +316,7 @@ class CaptureBookPageTest extends TestCase
             ->call('lookupIsbn', $book->isbn13)
             ->call('refreshBookMetadata')
             ->assertSet('metadataRefreshAvailable', false)
-            ->assertSee('No provider metadata was found')
+            ->assertSet('metadataRefreshMessage', 'No provider metadata was found. Existing book details were not changed.')
             ->assertSet('bookTitle', 'Saved title')
             ->assertSet('bookSynopsis', 'Existing synopsis stays.');
 
