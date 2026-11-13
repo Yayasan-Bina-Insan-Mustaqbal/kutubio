@@ -46,6 +46,8 @@ class CaptureBook extends Page
 
     public ?string $bookSubtitle = null;
 
+    public ?string $bookSynopsis = null;
+
     public ?string $bookAuthors = null;
 
     public string $authorNameStyle = 'local';
@@ -59,6 +61,12 @@ class CaptureBook extends Page
     public ?int $bookPageCount = null;
 
     public ?int $matchedBookId = null;
+
+    public array $metadataRefreshDraft = [];
+
+    public ?string $metadataRefreshMessage = null;
+
+    public bool $metadataRefreshAvailable = false;
 
     public mixed $coverDraft = null;
 
@@ -141,6 +149,7 @@ class CaptureBook extends Page
         $this->coverDraftPreviewUrl = null;
         $this->bookTitle = null;
         $this->bookSubtitle = null;
+        $this->bookSynopsis = null;
         $this->bookAuthors = null;
         $this->authorNameStyle = 'local';
         $this->categoryId = null;
@@ -148,6 +157,9 @@ class CaptureBook extends Page
         $this->bookPublisher = null;
         $this->bookPageCount = null;
         $this->metadataLookupMessage = '';
+        $this->metadataRefreshDraft = [];
+        $this->metadataRefreshMessage = null;
+        $this->metadataRefreshAvailable = false;
 
         if (preg_match('/^\d{13}$/', $isbn) !== 1) {
             $this->coverPanelVisible = false;
@@ -190,6 +202,8 @@ class CaptureBook extends Page
             $this->fillBibliographicDraft(array_merge($book->toArray(), ['metadata_source' => 'local']));
             $this->metadataLookupState = 'local_match';
             $this->metadataLookupMessage = 'Book found in the local catalog. Review or edit the details and add copies.';
+            $this->metadataRefreshMessage = 'Existing book loaded. Refresh metadata to check for provider details that may be missing.';
+            $this->metadataRefreshAvailable = true;
 
             return;
         }
@@ -224,6 +238,7 @@ class CaptureBook extends Page
                         'metadata_source' => 'provider',
                         'title' => $indonesianBook['title'],
                         'subtitle' => $indonesianBook['subtitle'] ?? null,
+                        'synopsis' => $indonesianBook['synopsis'] ?? $indonesianBook['description'] ?? null,
                         'authors_display' => implode(', ', $indonesianBook['authors'] ?? []),
                         'publisher' => $indonesianBook['publisher'] ?? null,
                         'page_count' => $indonesianBook['pages'] ?? null,
@@ -264,6 +279,7 @@ class CaptureBook extends Page
                     'metadata_source' => 'provider',
                     'title' => $googleVolume['title'] ?? null,
                     'subtitle' => $googleVolume['subtitle'] ?? null,
+                    'synopsis' => $googleVolume['description'] ?? null,
                     'authors_display' => implode(', ', $googleVolume['authors'] ?? []),
                     'publisher' => $googleVolume['publisher'] ?? null,
                     'page_count' => $googleVolume['pageCount'] ?? null,
@@ -324,6 +340,7 @@ class CaptureBook extends Page
                     'metadata_source' => 'provider',
                     'title' => $metadata['title'] ?? null,
                     'subtitle' => $metadata['subtitle'] ?? null,
+                    'synopsis' => $metadata['notes'] ?? $metadata['description'] ?? null,
                     'authors_display' => collect($metadata['authors'] ?? [])->pluck('name')->filter()->implode(', '),
                     'publisher' => collect($metadata['publishers'] ?? [])->pluck('name')->filter()->first(),
                     'page_count' => $metadata['number_of_pages'] ?? null,
@@ -353,6 +370,133 @@ class CaptureBook extends Page
         }
     }
 
+    public function refreshBookMetadata(): void
+    {
+        if (! $this->matchedBookId || preg_match('/^\d{13}$/', (string) $this->isbnBarcodeValue) !== 1) {
+            $this->metadataRefreshMessage = 'Scan an ISBN already in the catalog before refreshing metadata.';
+            $this->metadataRefreshAvailable = false;
+
+            return;
+        }
+
+        $this->metadataRefreshDraft = [];
+        $this->metadataRefreshMessage = 'Checking metadata providers…';
+        $this->metadataRefreshAvailable = false;
+
+        $metadata = $this->fetchPerpusnasMetadata($this->isbnBarcodeValue);
+
+        if ($metadata === null) {
+            $metadata = $this->fetchExternalBookMetadata($this->isbnBarcodeValue);
+        }
+
+        if ($metadata === null) {
+            $this->metadataRefreshMessage = 'No provider metadata was found. Existing book details were not changed.';
+
+            return;
+        }
+
+        $this->metadataRefreshDraft = collect([
+            'bookTitle' => $metadata['title'] ?? null,
+            'bookSubtitle' => $metadata['subtitle'] ?? null,
+            'bookSynopsis' => $metadata['synopsis'] ?? $metadata['description'] ?? null,
+            'bookAuthors' => $metadata['authors_display'] ?? null,
+            'bookPublisher' => $metadata['publisher'] ?? null,
+            'bookPageCount' => $metadata['page_count'] ?? null,
+        ])->filter(fn (mixed $value): bool => filled($value))->all();
+
+        if ($this->metadataRefreshDraft === []) {
+            $this->metadataRefreshMessage = 'The provider returned no useful book details. Existing book details were not changed.';
+
+            return;
+        }
+
+        $this->metadataRefreshAvailable = true;
+        $this->metadataRefreshMessage = 'Provider metadata is ready for review. Apply only to fields that are currently empty.';
+    }
+
+    public function applyMetadataRefresh(): void
+    {
+        if (! $this->matchedBookId || ! $this->metadataRefreshAvailable) {
+            return;
+        }
+
+        $book = Book::query()->findOrFail($this->matchedBookId);
+        $fields = [
+            'bookTitle' => 'title',
+            'bookSubtitle' => 'subtitle',
+            'bookSynopsis' => 'synopsis',
+            'bookAuthors' => 'authors_display',
+            'bookPublisher' => 'publisher',
+            'bookPageCount' => 'page_count',
+        ];
+
+        foreach ($fields as $draftField => $bookField) {
+            if (blank($book->{$bookField}) && filled($this->metadataRefreshDraft[$draftField] ?? null)) {
+                $this->{$draftField} = $this->metadataRefreshDraft[$draftField];
+            }
+        }
+
+        $this->metadataRefreshAvailable = false;
+        $this->metadataRefreshMessage = 'Provider values were added to empty form fields. Review and save to update the book.';
+    }
+
+    private function fetchExternalBookMetadata(string $isbn): ?array
+    {
+        try {
+            $response = Http::acceptJson()
+                ->withUserAgent('KutubioLibrary/1.0')
+                ->connectTimeout(3)
+                ->timeout((int) config('services.google_books.timeout', 5))
+                ->get(config('services.google_books.url', 'https://www.googleapis.com/books/v1/volumes'), array_filter([
+                    'q' => 'isbn:'.$isbn,
+                    'key' => config('services.google_books.key'),
+                ], fn (mixed $value): bool => filled($value)));
+
+            $volume = $response->json('items.0.volumeInfo');
+
+            if ($response->successful() && is_array($volume)) {
+                return [
+                    'title' => $volume['title'] ?? null,
+                    'subtitle' => $volume['subtitle'] ?? null,
+                    'synopsis' => $volume['description'] ?? null,
+                    'authors_display' => implode(', ', $volume['authors'] ?? []),
+                    'publisher' => $volume['publisher'] ?? null,
+                    'page_count' => $volume['pageCount'] ?? null,
+                ];
+            }
+        } catch (Exception $exception) {
+            Log::info('Google Books refresh lookup failed.', ['isbn' => $isbn, 'exception' => $exception::class]);
+        }
+
+        try {
+            $response = Http::acceptJson()
+                ->withUserAgent('KutubioLibrary/1.0 (school library catalog)')
+                ->connectTimeout(config('services.open_library.connect_timeout', 3))
+                ->timeout(config('services.open_library.timeout', 8))
+                ->get(rtrim(config('services.open_library.base_url', 'https://openlibrary.org'), '/').'/api/books', [
+                    'bibkeys' => 'ISBN:'.$isbn,
+                    'format' => 'json',
+                    'jscmd' => 'data',
+                ]);
+            $record = $response->json('ISBN:'.$isbn);
+
+            if ($response->successful() && is_array($record)) {
+                return [
+                    'title' => $record['title'] ?? null,
+                    'subtitle' => $record['subtitle'] ?? null,
+                    'synopsis' => $record['notes'] ?? $record['description'] ?? null,
+                    'authors_display' => collect($record['authors'] ?? [])->pluck('name')->filter()->implode(', '),
+                    'publisher' => collect($record['publishers'] ?? [])->pluck('name')->filter()->first(),
+                    'page_count' => $record['number_of_pages'] ?? null,
+                ];
+            }
+        } catch (Exception $exception) {
+            Log::info('Open Library refresh lookup failed.', ['isbn' => $isbn, 'exception' => $exception::class]);
+        }
+
+        return null;
+    }
+
     public function updatedCoverDraft(): void
     {
         try {
@@ -375,6 +519,7 @@ class CaptureBook extends Page
         $this->isbnBarcodeValue = null;
         $this->bookTitle = null;
         $this->bookSubtitle = null;
+        $this->bookSynopsis = null;
         $this->bookAuthors = null;
         $this->authorNameStyle = 'local';
         $this->categoryId = null;
@@ -388,6 +533,9 @@ class CaptureBook extends Page
         $this->coverDraftPreviewUrl = null;
         $this->metadataLookupState = 'idle';
         $this->metadataLookupMessage = '';
+        $this->metadataRefreshDraft = [];
+        $this->metadataRefreshMessage = null;
+        $this->metadataRefreshAvailable = false;
         $this->quantity = 0;
         $this->fundingSource = 'self';
         $this->purchaseYear = (string) now()->year;
@@ -409,7 +557,8 @@ class CaptureBook extends Page
         $validated = $this->validate([
             'isbnBarcodeValue' => ['nullable', 'string', 'max:64', 'regex:/^\d{13}$/'],
             'bookTitle' => ['required', 'string', 'max:255'],
-            'bookSubtitle' => ['nullable', 'string', 'max:1000'],
+            'bookSubtitle' => ['nullable', 'string', 'max:255'],
+            'bookSynopsis' => ['nullable', 'string', 'max:10000'],
             'bookAuthors' => ['required', 'string', 'max:1000'],
             'authorNameStyle' => ['required', 'string', 'in:local,foreign'],
             'categoryId' => ['nullable', 'integer', 'exists:categories,id'],
@@ -455,6 +604,7 @@ class CaptureBook extends Page
             $book->isbn13 = $validated['isbnBarcodeValue'] ?? null;
             $book->title = $validated['bookTitle'];
             $book->subtitle = $validated['bookSubtitle'] ?? null;
+            $book->synopsis = $validated['bookSynopsis'] ?? null;
             $book->authors_display = $validated['bookAuthors'];
             $book->author_name_style = $validated['authorNameStyle'];
             $book->category_id = $validated['categoryId'] ?? null;
@@ -538,6 +688,7 @@ class CaptureBook extends Page
                 'isbn13' => $this->normalizeIsbn($isbn),
                 'title' => (string) ($data['title'] ?? ''),
                 'subtitle' => null,
+                'synopsis' => filled($data['sinopsis'] ?? null) ? trim(strip_tags((string) $data['sinopsis'])) : null,
                 'authors_display' => $authorsDisplay,
                 'publisher' => filled($data['nama_penerbit'] ?? null) ? trim(strip_tags((string) $data['nama_penerbit'])) : null,
                 'page_count' => null,
@@ -621,14 +772,15 @@ class CaptureBook extends Page
         $this->bookSubtitle = $normalizeTitle && ($metadata['metadata_source'] ?? null) === 'provider'
             ? $this->normalizeImportedTitle(isset($metadata['subtitle']) ? (string) $metadata['subtitle'] : null)
             : ($metadata['subtitle'] ?? null);
-            $this->bookAuthors = is_array($metadata['authors_display'] ?? null)
-                ? implode(', ', $metadata['authors_display'])
-                : ($metadata['authors_display'] ?? null);
-            $this->authorNameStyle = in_array($metadata['author_name_style'] ?? null, ['local', 'foreign'], true)
-                ? $metadata['author_name_style']
-                : 'local';
-            $this->categoryId = isset($metadata['category_id']) ? (int) $metadata['category_id'] : null;
-            $this->bookPublisher = $metadata['publisher'] ?? null;
+        $this->bookSynopsis = $metadata['synopsis'] ?? $metadata['description'] ?? null;
+        $this->bookAuthors = is_array($metadata['authors_display'] ?? null)
+            ? implode(', ', $metadata['authors_display'])
+            : ($metadata['authors_display'] ?? null);
+        $this->authorNameStyle = in_array($metadata['author_name_style'] ?? null, ['local', 'foreign'], true)
+            ? $metadata['author_name_style']
+            : 'local';
+        $this->categoryId = isset($metadata['category_id']) ? (int) $metadata['category_id'] : null;
+        $this->bookPublisher = $metadata['publisher'] ?? null;
         $this->bookPageCount = isset($metadata['page_count']) ? (int) $metadata['page_count'] : null;
     }
 }

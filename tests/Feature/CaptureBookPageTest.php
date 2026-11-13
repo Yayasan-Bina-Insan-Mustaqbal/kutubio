@@ -63,6 +63,24 @@ class CaptureBookPageTest extends TestCase
         $this->assertSame('Scan Book', ScanBook::getNavigationLabel());
     }
 
+    public function test_submit_saves_manual_synopsis_on_the_book(): void
+    {
+        $this->actingAs(User::factory()->create());
+
+        Livewire::test(CaptureBook::class)
+            ->set('isbnBarcodeValue', '9781234567890')
+            ->set('bookTitle', 'Book with synopsis')
+            ->set('bookAuthors', 'Author Name')
+            ->set('bookSynopsis', 'A short description of the book.')
+            ->call('submit')
+            ->assertHasNoErrors();
+
+        $this->assertDatabaseHas('books', [
+            'title' => 'Book with synopsis',
+            'synopsis' => 'A short description of the book.',
+        ]);
+    }
+
     public function test_submit_requires_book_title_author_and_validates_optional_category(): void
     {
         $this->actingAs(User::factory()->create());
@@ -129,6 +147,7 @@ class CaptureBookPageTest extends TestCase
             ->set('isbnBarcodeValue', '9781234567890')
             ->set('bookTitle', 'Previous title')
             ->set('bookSubtitle', 'Previous subtitle')
+            ->set('bookSynopsis', 'Previous synopsis')
             ->set('bookAuthors', 'Previous author')
             ->set('authorNameStyle', 'foreign')
             ->set('categoryId', $category->id)
@@ -147,6 +166,7 @@ class CaptureBookPageTest extends TestCase
             ->assertSet('isbnBarcodeValue', null)
             ->assertSet('bookTitle', null)
             ->assertSet('bookSubtitle', null)
+            ->assertSet('bookSynopsis', null)
             ->assertSet('bookAuthors', null)
             ->assertSet('authorNameStyle', 'local')
             ->assertSet('categoryId', null)
@@ -223,9 +243,89 @@ class CaptureBookPageTest extends TestCase
 
         Livewire::test(CaptureBook::class)
             ->call('lookupIsbn', '9781234567890')
+            ->assertSee('Refresh Missing Metadata')
             ->assertSet('matchedBookId', $book->id)
             ->assertSet('bookTitle', 'Local title')
             ->assertSet('metadataLookupState', 'local_match');
+    }
+
+    public function test_refresh_metadata_previews_provider_values_and_applies_only_to_empty_form_fields(): void
+    {
+        Http::fake([
+            'isbn.perpusnas.go.id/landing_page/serverside_search2*' => Http::response([
+                'data' => [[
+                    'isbn' => '9786020935539',
+                    'title' => 'Provider title',
+                    'sinopsis' => 'Provider synopsis',
+                    'kepeng' => 'Provider Author',
+                    'nama_penerbit' => 'Provider Publisher',
+                ]],
+            ]),
+        ]);
+        $this->actingAs(User::factory()->create());
+        $book = Book::factory()->create([
+            'isbn13' => '9786020935539',
+            'title' => 'Saved title',
+            'authors_display' => 'Saved author',
+            'synopsis' => null,
+            'publisher' => null,
+        ]);
+
+        Livewire::test(CaptureBook::class)
+            ->call('lookupIsbn', $book->isbn13)
+            ->assertSet('bookTitle', 'Saved title')
+            ->assertSet('bookSynopsis', null)
+            ->call('refreshBookMetadata')
+            ->assertSet('metadataRefreshAvailable', true)
+            ->assertSet('bookTitle', 'Saved title')
+            ->assertSet('bookSynopsis', null)
+            ->call('applyMetadataRefresh')
+            ->assertSet('bookTitle', 'Saved title')
+            ->assertSet('bookAuthors', 'Saved author')
+            ->assertSet('bookSynopsis', 'Provider synopsis')
+            ->assertSet('bookPublisher', 'Provider Publisher')
+            ->assertSet('metadataRefreshAvailable', false)
+            ->call('submit')
+            ->assertHasNoErrors();
+
+        $this->assertDatabaseHas('books', [
+            'id' => $book->id,
+            'title' => 'Saved title',
+            'authors_display' => 'Saved author',
+            'synopsis' => 'Provider synopsis',
+            'publisher' => 'Provider Publisher',
+        ]);
+    }
+
+    public function test_refresh_metadata_without_provider_description_keeps_existing_values_and_does_not_save(): void
+    {
+        Http::fake([
+            'isbn.perpusnas.go.id/landing_page/serverside_search2*' => Http::response(['data' => []]),
+            'khrlanamm.github.io/*' => Http::response([], 404),
+            'www.googleapis.com/*' => Http::response(['items' => []], 200),
+            'openlibrary.org/*' => Http::response([], 200),
+        ]);
+        $this->actingAs(User::factory()->create());
+        $book = Book::factory()->create([
+            'isbn13' => '9786020935539',
+            'title' => 'Saved title',
+            'authors_display' => 'Saved author',
+            'synopsis' => 'Existing synopsis stays.',
+        ]);
+
+        Livewire::test(CaptureBook::class)
+            ->call('lookupIsbn', $book->isbn13)
+            ->call('refreshBookMetadata')
+            ->assertSet('metadataRefreshAvailable', false)
+            ->assertSee('No provider metadata was found')
+            ->assertSet('bookTitle', 'Saved title')
+            ->assertSet('bookSynopsis', 'Existing synopsis stays.');
+
+        $this->assertDatabaseHas('books', [
+            'id' => $book->id,
+            'title' => 'Saved title',
+            'synopsis' => 'Existing synopsis stays.',
+        ]);
     }
 
     public function test_isbn_lookup_uses_perpusnas_json_metadata_before_other_external_sources(): void
@@ -237,6 +337,7 @@ class CaptureBookPageTest extends TestCase
                 'data' => [[
                     'isbn' => '9786020935539',
                     'title' => 'ANAK YANG RAJIN DAN BAIK',
+                    'sinopsis' => '<p>Kisah tentang anak rajin dan baik.</p>',
                     'kepeng' => '<span>Author One</span>, Author Two; <b>Author Three</b>, Ilustrasi, Budi Santoso',
                     'nama_penerbit' => '<span>Publisher Name</span>',
                     'tahun_terbit' => '<span>2024</span>',
@@ -250,6 +351,7 @@ class CaptureBookPageTest extends TestCase
         Livewire::test(CaptureBook::class)
             ->call('lookupIsbn', '9786020935539')
             ->assertSet('bookTitle', 'Anak yang Rajin dan Baik')
+            ->assertSet('bookSynopsis', 'Kisah tentang anak rajin dan baik.')
             ->assertSet('bookAuthors', 'Author One, Author Two, Author Three')
             ->assertSet('bookPublisher', 'Publisher Name')
             ->assertSet('metadataLookupState', 'external_match')
@@ -262,6 +364,27 @@ class CaptureBookPageTest extends TestCase
             && $request['length'] === 10
             && $request->hasHeader('User-Agent'));
         Http::assertNotSent(fn ($request): bool => str_contains($request->url(), 'googleapis.com'));
+    }
+
+    public function test_perpusnas_missing_synopsis_leaves_capture_synopsis_empty(): void
+    {
+        Http::fake([
+            'isbn.perpusnas.go.id/landing_page/serverside_search2*' => Http::response([
+                'recordsTotal' => 1,
+                'recordsFiltered' => 1,
+                'data' => [[
+                    'isbn' => '9786020935539',
+                    'title' => 'ANAK YANG RAJIN DAN BAIK',
+                    'kepeng' => 'Author One',
+                    'nama_penerbit' => 'Publisher Name',
+                ]],
+            ]),
+        ]);
+        $this->actingAs(User::factory()->create());
+
+        Livewire::test(CaptureBook::class)
+            ->call('lookupIsbn', '9786020935539')
+            ->assertSet('bookSynopsis', null);
     }
 
     public function test_perpusnas_author_credits_are_removed_from_author_name(): void
