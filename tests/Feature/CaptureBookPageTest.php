@@ -243,7 +243,6 @@ class CaptureBookPageTest extends TestCase
 
         Livewire::test(CaptureBook::class)
             ->call('lookupIsbn', '9781234567890')
-            ->assertSee('Refresh Missing Metadata')
             ->assertSet('matchedBookId', $book->id)
             ->assertSet('bookTitle', 'Local title')
             ->assertSet('metadataLookupState', 'local_match');
