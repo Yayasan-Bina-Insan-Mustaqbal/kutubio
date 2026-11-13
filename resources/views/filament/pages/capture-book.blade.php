@@ -108,10 +108,19 @@
                     @error('isbnBarcodeValue')
                         <p class="mt-1 text-xs font-semibold text-danger-600">Enter a valid ISBN-13.</p>
                     @enderror
-                    <button type="button" wire:click="lookupIsbn" wire:loading.attr="disabled" class="mt-3 w-full rounded-xl bg-primary-600 px-4 py-3 text-sm font-bold text-white hover:bg-primary-500 disabled:opacity-50">
+                    <button type="button" wire:click="lookupIsbn" wire:loading.attr="disabled" class="mt-3 mb-3 w-full rounded-xl bg-primary-600 px-4 py-3 text-sm font-bold text-white hover:bg-primary-500 disabled:opacity-50">
                         <span wire:loading.remove wire:target="lookupIsbn">Look Up ISBN</span>
                         <span wire:loading wire:target="lookupIsbn">Searching catalog and provider…</span>
                     </button>
+                    @if ($matchedBookId)
+                        <button type="button" wire:click="refreshBookMetadata" wire:loading.attr="disabled" wire:target="refreshBookMetadata" class="mt-3 mb-3 w-full rounded-xl border border-primary-300 px-4 py-3 text-sm font-bold text-primary-700 hover:bg-primary-50 disabled:opacity-50 dark:border-primary-500/30 dark:text-primary-300 dark:hover:bg-primary-500/10">
+                            <span wire:loading.remove wire:target="refreshBookMetadata">Refresh Missing Metadata</span>
+                            <span wire:loading wire:target="refreshBookMetadata">Checking providers…</span>
+                        </button>
+                    @endif
+                    @if ($metadataRefreshMessage)
+                        <p role="status" class="mt-3 text-sm text-gray-600 dark:text-gray-300">{{ $metadataRefreshMessage }}</p>
+                    @endif
                 </div>
                 <div class="rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-600 dark:border-white/10 dark:bg-gray-900 dark:text-gray-300">
                     <span class="font-semibold">Lookup status:</span> {{ $metadataLookupMessage !== '' ? $metadataLookupMessage : 'Scan or enter an ISBN to search the local catalog and metadata provider.' }}
@@ -126,7 +135,7 @@
                             <p class="text-sm text-gray-500 dark:text-gray-400">Review or enter the book details before saving.</p>
                         </div>
                         @if ($matchedBookId)
-                            <span class="inline-flex items-center gap-1.5 rounded-full border border-emerald-300 bg-emerald-100 px-3 py-1.5 text-xs font-bold text-emerald-900 shadow-sm dark:border-emerald-700 dark:bg-emerald-950 dark:text-emerald-200">
+                            <span class="mt-2 mb-2 inline-flex items-center gap-1.5 rounded-full border border-emerald-300 bg-emerald-100 px-3 py-1.5 text-xs font-bold text-emerald-900 shadow-sm dark:border-emerald-700 dark:bg-emerald-950 dark:text-emerald-200">
                                 <x-heroicon-m-check-circle class="h-4 w-4" aria-hidden="true" />
                                 Existing catalog book
                             </span>
@@ -137,6 +146,19 @@
                             </span>
                         @endif
                     </div>
+                    @if ($metadataRefreshAvailable)
+                        <div class="mt-5 mb-4 rounded-xl border border-amber-300 bg-amber-50 p-4 dark:border-amber-500/30 dark:bg-amber-500/10">
+                            <h3 class="text-sm font-bold text-amber-900 dark:text-amber-200">Provider metadata draft</h3>
+                            <p class="mt-1 text-sm text-amber-800 dark:text-amber-300">Only values for fields that are empty on the saved book will be copied into this form. Existing saved values remain unchanged.</p>
+                            <ul class="mt-3 list-inside list-disc space-y-1 text-sm text-gray-700 dark:text-gray-200">
+                                @foreach ($metadataRefreshDraft as $field => $value)
+                                    <li>{{ match ($field) { 'bookTitle' => 'Title', 'bookSubtitle' => 'Subtitle', 'bookSynopsis' => 'Synopsis', 'bookAuthors' => 'Authors', 'bookPublisher' => 'Publisher', 'bookPageCount' => 'Page count', default => $field } }}: {{ $value }}</li>
+                                @endforeach
+                            </ul>
+                            <button type="button" wire:click="applyMetadataRefresh" class="mt-4 rounded-lg bg-primary-600 px-4 py-2 text-sm font-bold text-white hover:bg-primary-500">Fill Empty Fields</button>
+                        </div>
+                    @endif
+
                     <div class="grid gap-x-6 gap-y-5 md:grid-cols-2">
                         <label class="mt-2 block text-sm font-semibold text-gray-700 dark:text-gray-300">ISBN
                             <input type="text" wire:model="isbnBarcodeValue" class="mt-2 w-full rounded-lg border-gray-300 bg-gray-50 px-3.5 py-3 font-mono dark:border-white/10 dark:bg-gray-800 dark:text-white" placeholder="Optional ISBN-13">
@@ -147,6 +169,10 @@
                         </label>
                         <label class="m-2 block text-sm font-semibold text-gray-700 dark:text-gray-300">Subtitle
                             <input type="text" wire:model="bookSubtitle" class="mt-2 w-full rounded-lg border-gray-300 px-3.5 py-3 dark:border-white/10 dark:bg-gray-800 dark:text-white" placeholder="Optional subtitle">
+                        </label>
+                        <label class="mt-2 block text-sm font-semibold text-gray-700 dark:text-gray-300">Synopsis
+                            <textarea wire:model="bookSynopsis" rows="5" class="mt-2 w-full rounded-lg border-gray-300 px-3.5 py-3 dark:border-white/10 dark:bg-gray-800 dark:text-white" placeholder="Optional book synopsis"></textarea>
+                            @error('bookSynopsis') <span class="mt-1 block text-xs text-danger-600">{{ $message }}</span> @enderror
                         </label>
                         <label class="mt-2 block text-sm font-semibold text-gray-700 dark:text-gray-300">Author(s) <span class="text-danger-600">*</span>
                             <input type="text" wire:model="bookAuthors" class="mt-2 w-full rounded-lg border-gray-300 px-3.5 py-3 dark:border-white/10 dark:bg-gray-800 dark:text-white" placeholder="Separate multiple authors with commas" required>
@@ -235,23 +261,42 @@
             let scannerStarting = false;
             let scannerFailed = false;
             let scannerInitAttempts = 0;
+            let scannerMountElement = null;
+            let scannerGeneration = 0;
             let coverStream = null;
             let coverDraftUrl = null;
-            const scannerElement = document.getElementById('barcodeScanner');
-            const isbnInput = document.getElementById('isbnBarcodeInput');
-            const scannerStatus = document.getElementById('scannerStatus');
-            const scannerLoading = document.getElementById('scannerLoading');
-            const coverPreview = document.getElementById('coverPreview');
-            const coverPreviewImage = document.getElementById('coverPreviewImage');
-            const coverVideo = document.getElementById('coverCameraVideo');
-            const coverCanvas = document.getElementById('coverCaptureCanvas');
-            const scannerGuide = document.getElementById('scannerGuide');
-            const rescanButton = document.getElementById('rescanBarcodeButton');
-            const restartButton = document.getElementById('restartBarcodeButton');
-            const captureButton = document.getElementById('captureCoverButton');
-            const coverFileInput = document.getElementById('coverFileInput');
+            let scannerElement = document.getElementById('barcodeScanner');
+            let isbnInput = document.getElementById('isbnBarcodeInput');
+            let scannerStatus = document.getElementById('scannerStatus');
+            let scannerLoading = document.getElementById('scannerLoading');
+            let coverPreview = document.getElementById('coverPreview');
+            let coverPreviewImage = document.getElementById('coverPreviewImage');
+            let coverVideo = document.getElementById('coverCameraVideo');
+            let coverCanvas = document.getElementById('coverCaptureCanvas');
+            let scannerGuide = document.getElementById('scannerGuide');
+            let rescanButton = document.getElementById('rescanBarcodeButton');
+            let restartButton = document.getElementById('restartBarcodeButton');
+            let captureButton = document.getElementById('captureCoverButton');
+            let coverFileInput = document.getElementById('coverFileInput');
             let panelMode = document.getElementById('captureViewport')?.dataset.mode ?? 'scanner';
             let pendingIsbn = null;
+
+            const refreshCaptureElements = () => {
+                scannerElement = document.getElementById('barcodeScanner');
+                isbnInput = document.getElementById('isbnBarcodeInput');
+                scannerStatus = document.getElementById('scannerStatus');
+                scannerLoading = document.getElementById('scannerLoading');
+                coverPreview = document.getElementById('coverPreview');
+                coverPreviewImage = document.getElementById('coverPreviewImage');
+                coverVideo = document.getElementById('coverCameraVideo');
+                coverCanvas = document.getElementById('coverCaptureCanvas');
+                scannerGuide = document.getElementById('scannerGuide');
+                rescanButton = document.getElementById('rescanBarcodeButton');
+                restartButton = document.getElementById('restartBarcodeButton');
+                captureButton = document.getElementById('captureCoverButton');
+                coverFileInput = document.getElementById('coverFileInput');
+            };
+            const scannerLoadingMarkup = scannerLoading?.innerHTML ?? '';
 
             const stopCoverCamera = () => {
                 if (coverStream) {
@@ -263,17 +308,35 @@
             };
 
             const stopScanner = () => {
+                scannerGeneration++;
                 if (scannerRunning && window.Quagga) {
                     Quagga.offDetected(onDetected);
                     Quagga.stop();
                     scannerRunning = false;
                 }
                 scannerStarting = false;
+                scannerMountElement = null;
                 scannerElement?.querySelectorAll('video').forEach(video => video.srcObject?.getTracks().forEach(track => track.stop()));
+            };
+
+            const showScannerPanel = () => {
+                panelMode = 'scanner';
+                const viewport = document.getElementById('captureViewport');
+                if (viewport) viewport.dataset.mode = 'scanner';
+                coverPreview?.classList.add('hidden');
+                coverVideo?.classList.add('hidden');
+                scannerElement?.classList.remove('hidden');
+                scannerGuide?.classList.remove('hidden');
+                rescanButton?.classList.remove('hidden');
+                restartButton?.classList.add('hidden');
+                scannerLoading?.classList.remove('hidden');
+                if (scannerStatus) scannerStatus.textContent = 'Starting camera…';
             };
 
             const showCoverPanel = () => {
                 panelMode = 'cover';
+                const viewport = document.getElementById('captureViewport');
+                if (viewport) viewport.dataset.mode = 'cover';
                 stopScanner();
                 scannerLoading?.classList.add('hidden');
                 scannerGuide?.classList.add('hidden');
@@ -316,7 +379,11 @@
             }
 
             window.startBarcodeScanner = async () => {
+                refreshCaptureElements();
                 if (!scannerElement || scannerRunning || scannerStarting || scannerFailed || panelMode === 'cover') return;
+                const scannerTarget = scannerElement;
+                scannerMountElement = scannerTarget;
+                const generation = ++scannerGeneration;
                 if (!window.Quagga) {
                     scannerInitAttempts++;
                     if (scannerInitAttempts < 20) setTimeout(window.startBarcodeScanner, 250);
@@ -334,22 +401,27 @@
                     const permissionStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' } } });
                     permissionStream.getTracks().forEach(track => track.stop());
                 } catch (error) {
+                    if (generation !== scannerGeneration || panelMode === 'cover') return;
                     setScannerUnavailable(error.name === 'NotAllowedError' ? 'Camera permission was denied.' : `Could not access camera: ${error.message || error.name}`);
                     console.error('ISBN camera permission failed.', error);
                     return;
                 }
+                if (generation !== scannerGeneration || panelMode === 'cover' || scannerElement !== scannerTarget) return;
                 Quagga.init({
                     inputStream: {
                         name: 'ISBN camera scanner',
                         type: 'LiveStream',
-                        target: scannerElement,
+                        target: scannerTarget,
                         constraints: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } },
                     },
                     decoder: { readers: ['ean_reader'] },
                     locate: true,
                     frequency: 8,
                 }, error => {
+                    if (generation !== scannerGeneration || scannerElement !== scannerTarget || panelMode === 'cover') return;
                     if (error) {
+                        scannerStarting = false;
+                        scannerMountElement = null;
                         setScannerUnavailable(error.message || 'Could not initialize ISBN camera scanner.');
                         console.error('ISBN scanner initialization failed.', error);
                         return;
@@ -358,6 +430,11 @@
                     Quagga.start();
                     scannerRunning = true;
                     scannerFailed = false;
+                    scannerTarget.classList.remove('hidden');
+                    scannerGuide?.classList.remove('hidden');
+                    coverPreview?.classList.add('hidden');
+                    rescanButton?.classList.remove('hidden');
+                    restartButton?.classList.add('hidden');
                     scannerLoading?.classList.add('hidden');
                     if (scannerStatus) scannerStatus.textContent = 'Camera active — point at an ISBN-13 barcode.';
                 });
@@ -411,17 +488,50 @@
                 }, 'image/jpeg', 0.85);
             };
 
+            const boundCaptureControls = new WeakSet();
+            const bindCaptureControls = () => {
+                refreshCaptureElements();
+                [captureButton, rescanButton, coverFileInput].forEach(element => {
+                    if (!element || boundCaptureControls.has(element)) return;
+                    boundCaptureControls.add(element);
+                    if (element === captureButton) {
+                        element.addEventListener('click', () => {
+                            if (coverStream) window.captureCoverPhoto();
+                            else window.startCoverCamera();
+                        });
+                    } else if (element === rescanButton) {
+                        element.addEventListener('click', () => window.startBarcodeScanner());
+                    } else {
+                        element.addEventListener('change', () => {
+                            stopCapture();
+                            panelMode = 'cover';
+                            const file = element.files?.[0];
+                            if (file) {
+                                if (coverDraftUrl) URL.revokeObjectURL(coverDraftUrl);
+                                coverDraftUrl = URL.createObjectURL(file);
+                                coverPreviewImage.src = coverDraftUrl;
+                                const coverFileName = document.getElementById('coverFileName');
+                                if (coverFileName) {
+                                    coverFileName.textContent = file.name;
+                                    coverFileName.classList.remove('hidden');
+                                }
+                            }
+                            showCoverPanel();
+                            if (captureButton) captureButton.textContent = 'Retake Cover';
+                            if (scannerStatus) scannerStatus.textContent = 'Cover selected. Save Book to apply it.';
+                        });
+                    }
+                });
+            };
+
             window.restartBarcodeScanner = () => {
                 stopCapture();
-                panelMode = 'scanner';
                 pendingIsbn = null;
                 scannerFailed = false;
-                coverPreview?.classList.add('hidden');
+                refreshCaptureElements();
+                if (scannerLoading) scannerLoading.innerHTML = scannerLoadingMarkup;
+                showScannerPanel();
                 coverPreviewImage.src = @js(asset('images/book-cover-placeholder.svg'));
-                scannerGuide?.classList.remove('hidden');
-                scannerLoading?.classList.remove('hidden');
-                restartButton?.classList.add('hidden');
-                rescanButton?.classList.remove('hidden');
                 if (coverFileInput) coverFileInput.value = '';
                 const coverFileName = document.getElementById('coverFileName');
                 if (coverFileName) {
@@ -435,68 +545,58 @@
                 window.startBarcodeScanner();
             };
 
-            captureButton?.addEventListener('click', () => {
-                if (coverStream) window.captureCoverPhoto();
-                else window.startCoverCamera();
-            });
-
             restartButton?.addEventListener('click', () => window.restartBarcodeScanner());
-            rescanButton?.addEventListener('click', () => window.startBarcodeScanner());
-
-            coverFileInput?.addEventListener('change', () => {
-                stopCapture();
-                panelMode = 'cover';
-                const file = coverFileInput.files?.[0];
-                if (file) {
-                    if (coverDraftUrl) URL.revokeObjectURL(coverDraftUrl);
-                    coverDraftUrl = URL.createObjectURL(file);
-                    coverPreviewImage.src = coverDraftUrl;
-                    const coverFileName = document.getElementById('coverFileName');
-                    if (coverFileName) {
-                        coverFileName.textContent = file.name;
-                        coverFileName.classList.remove('hidden');
-                    }
-                }
-                showCoverPanel();
-                if (captureButton) captureButton.textContent = 'Retake Cover';
-                if (scannerStatus) scannerStatus.textContent = 'Cover selected. Save Book to apply it.';
-            });
 
             const initializeBarcodeScanner = () => {
+                refreshCaptureElements();
+                bindCaptureControls();
                 const viewport = document.getElementById('captureViewport');
                 panelMode = viewport?.dataset.mode ?? 'scanner';
                 if (panelMode === 'cover') {
                     showCoverPanel();
                     return;
                 }
+                if (scannerMountElement && scannerMountElement !== scannerElement) {
+                    stopScanner();
+                }
                 scannerFailed = false;
-                scannerLoading?.classList.remove('hidden');
-                if (scannerStatus) scannerStatus.textContent = 'Starting camera…';
+                showScannerPanel();
                 window.startBarcodeScanner();
             };
 
-            Livewire.on('cover-draft-updated', event => {
-                if (panelMode !== 'cover') return;
-                if (coverDraftUrl) return;
-                const previewUrl = event.url ?? event[0]?.url;
-                if (previewUrl) coverPreviewImage.src = previewUrl;
-                showCoverPanel();
-            });
-            Livewire.on('cover-panel-ready', () => {
-                const viewport = document.getElementById('captureViewport');
-                if (viewport?.dataset.mode !== 'cover') return;
-                if (pendingIsbn && isbnInput && isbnInput.value.replace(/\D/g, '') !== pendingIsbn) return;
-                pendingIsbn = null;
-                panelMode = 'cover';
-                showCoverPanel();
-            });
-            Livewire.on('cover-panel-reset', () => {
-                if (panelMode === 'scanner') return;
-                window.restartBarcodeScanner();
-            });
+            const bindLivewireEvents = () => {
+                if (!window.Livewire || window.captureBookEventsBound) return;
+                window.captureBookEventsBound = true;
+
+                Livewire.on('cover-draft-updated', event => {
+                    if (panelMode !== 'cover') return;
+                    if (coverDraftUrl) return;
+                    const previewUrl = event.url ?? event[0]?.url;
+                    if (previewUrl) coverPreviewImage.src = previewUrl;
+                    showCoverPanel();
+                });
+                Livewire.on('cover-panel-ready', () => {
+                    refreshCaptureElements();
+                    const viewport = document.getElementById('captureViewport');
+                    if (viewport?.dataset.mode !== 'cover') return;
+                    if (pendingIsbn && isbnInput && isbnInput.value.replace(/\D/g, '') !== pendingIsbn) return;
+                    pendingIsbn = null;
+                    panelMode = 'cover';
+                    showCoverPanel();
+                });
+                Livewire.on('cover-panel-reset', () => {
+                    refreshCaptureElements();
+                    if (panelMode === 'scanner') return;
+                    window.restartBarcodeScanner();
+                });
+            };
+            document.addEventListener('livewire:init', bindLivewireEvents, { once: true });
+            if (window.Livewire) bindLivewireEvents();
             document.addEventListener('livewire:navigating', stopCapture);
             document.addEventListener('livewire:navigated', () => setTimeout(initializeBarcodeScanner, 150));
-            document.addEventListener('livewire:init', () => setTimeout(initializeBarcodeScanner, 150), { once: true });
+            if (!window.Livewire) {
+                document.addEventListener('livewire:init', initializeBarcodeScanner, { once: true });
+            }
             if (panelMode === 'cover') showCoverPanel();
             else setTimeout(initializeBarcodeScanner, 250);
         })();
