@@ -224,62 +224,6 @@
             searchInput.setAttribute('aria-expanded', 'true');
         } else closeSuggestions();
     };
-    const renderSuggestions = suggestions => {
-        suggestionList.replaceChildren();
-        suggestions.forEach(suggestion => {
-            const link = document.createElement('a');
-            link.className = 'suggestion';
-            link.setAttribute('role', 'option');
-            link.href = suggestion.url;
-            const title = document.createElement('span');
-            title.className = 'suggestion-title';
-            title.textContent = suggestion.title;
-            link.append(title);
-            if (suggestion.isbn) {
-                const isbn = document.createElement('span');
-                isbn.className = 'suggestion-isbn';
-                isbn.textContent = `ISBN ${suggestion.isbn}`;
-                link.append(isbn);
-            }
-            suggestionList.append(link);
-        });
-        if (!suggestions.length && searchInput.value.trim() !== '') {
-            const emptyState = document.createElement('div');
-            emptyState.className = 'no-suggestions';
-            emptyState.setAttribute('role', 'status');
-            emptyState.textContent = 'No matching book suggestions.';
-            suggestionList.append(emptyState);
-        }
-        openSuggestions();
-    };
-    const renderSuggestions = suggestions => {
-        suggestionList.replaceChildren();
-        suggestions.forEach(suggestion => {
-            const link = document.createElement('a');
-            link.className = 'suggestion';
-            link.setAttribute('role', 'option');
-            link.href = suggestion.url;
-            const title = document.createElement('span');
-            title.className = 'suggestion-title';
-            title.textContent = suggestion.title;
-            link.append(title);
-            if (suggestion.isbn) {
-                const isbn = document.createElement('span');
-                isbn.className = 'suggestion-isbn';
-                isbn.textContent = `ISBN ${suggestion.isbn}`;
-                link.append(isbn);
-            }
-            suggestionList.append(link);
-        });
-        if (!suggestions.length && searchInput.value.trim() !== '') {
-            const emptyState = document.createElement('div');
-            emptyState.className = 'no-suggestions';
-            emptyState.setAttribute('role', 'status');
-            emptyState.textContent = 'No matching book suggestions.';
-            suggestionList.append(emptyState);
-        }
-        openSuggestions();
-    };
     const bindPagination = () => {
         results.querySelectorAll('.pagination a').forEach(link => {
             link.addEventListener('click', event => {
