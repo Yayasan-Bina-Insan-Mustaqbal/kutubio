@@ -41,23 +41,4 @@ class BookCoverStorage
         Storage::disk('public')->delete($path);
     }
 
-    public function replace(Book $book, UploadedFile|TemporaryUploadedFile $upload): string
-    {
-        $oldPath = $book->cover_image_path;
-        $path = $this->storeDraft($book, $upload);
-
-        try {
-            $book->forceFill(['cover_image_path' => $path])->save();
-        } catch (\Throwable $exception) {
-            Storage::disk('public')->delete($path);
-
-            throw $exception;
-        }
-
-        if (filled($oldPath) && str_starts_with($oldPath, 'book-covers/' . $book->public_id . '/') && $oldPath !== $path) {
-            Storage::disk('public')->delete($oldPath);
-        }
-
-        return $path;
-    }
 }
