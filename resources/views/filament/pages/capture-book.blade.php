@@ -39,6 +39,29 @@
             object-fit: contain !important;
         }
 
+        .capture-book-form .capture-book-camera-stage[data-mode="cover"] {
+            aspect-ratio: 3 / 4;
+            min-height: 0;
+            height: min(68vh, 36rem);
+            max-height: none;
+            width: min(100%, 27rem);
+            margin-inline: auto;
+            background: #030712;
+        }
+
+        .capture-book-form .capture-book-camera-stage[data-mode="cover"] #coverCameraVideo {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .capture-book-form .capture-book-camera-stage[data-mode="cover"] #coverPreviewImage {
+            width: 100%;
+            height: 100%;
+            max-height: none;
+            object-fit: contain;
+        }
+
         @media (min-width: 1100px) {
             .capture-book-form .capture-book-layout {
                 display: grid;
@@ -76,8 +99,9 @@
                             <span>Connecting to camera…</span>
                             <span class="text-xs text-gray-500">Allow camera access when prompted.</span>
                         </div>
-                        <video id="coverCameraVideo" class="absolute inset-0 hidden h-full w-full object-contain" autoplay playsinline></video>
-                        <canvas id="coverCaptureCanvas" class="hidden"></canvas>
+                         <video id="coverCameraVideo" class="absolute inset-0 hidden h-full w-full object-cover" autoplay playsinline></video>
+                         <div id="coverFrameGuide" class="pointer-events-none absolute inset-[5%] hidden rounded-md border-2 border-white/90 shadow-[0_0_0_999px_rgba(0,0,0,0.2)]"></div>
+                         <canvas id="coverCaptureCanvas" class="hidden"></canvas>
                         <div id="coverPreview" class="absolute inset-0 flex items-center justify-center bg-gray-50 dark:bg-gray-900 {{ $coverPanelVisible ? '' : 'hidden' }}">
                             <img id="coverPreviewImage" src="{{ $coverDraftPreviewUrl ?? $matchedBookCoverUrl ?? asset('images/book-cover-placeholder.svg') }}" alt="Book cover preview" class="max-h-full w-full object-contain">
                             @if ($coverDraft)
@@ -273,6 +297,7 @@
             let coverPreviewImage = document.getElementById('coverPreviewImage');
             let coverVideo = document.getElementById('coverCameraVideo');
             let coverCanvas = document.getElementById('coverCaptureCanvas');
+            let coverFrameGuide = document.getElementById('coverFrameGuide');
             let scannerGuide = document.getElementById('scannerGuide');
             let rescanButton = document.getElementById('rescanBarcodeButton');
             let restartButton = document.getElementById('restartBarcodeButton');
@@ -290,6 +315,7 @@
                 coverPreviewImage = document.getElementById('coverPreviewImage');
                 coverVideo = document.getElementById('coverCameraVideo');
                 coverCanvas = document.getElementById('coverCaptureCanvas');
+                coverFrameGuide = document.getElementById('coverFrameGuide');
                 scannerGuide = document.getElementById('scannerGuide');
                 rescanButton = document.getElementById('rescanBarcodeButton');
                 restartButton = document.getElementById('restartBarcodeButton');
@@ -323,6 +349,7 @@
                 panelMode = 'scanner';
                 const viewport = document.getElementById('captureViewport');
                 if (viewport) viewport.dataset.mode = 'scanner';
+                coverFrameGuide?.classList.add('hidden');
                 coverPreview?.classList.add('hidden');
                 coverVideo?.classList.add('hidden');
                 scannerElement?.classList.remove('hidden');
@@ -337,6 +364,7 @@
                 panelMode = 'cover';
                 const viewport = document.getElementById('captureViewport');
                 if (viewport) viewport.dataset.mode = 'cover';
+                coverFrameGuide?.classList.add('hidden');
                 stopScanner();
                 scannerLoading?.classList.add('hidden');
                 scannerGuide?.classList.add('hidden');
@@ -452,20 +480,51 @@
                     coverVideo.srcObject = coverStream;
                     coverVideo.classList.remove('hidden');
                     coverPreview?.classList.add('hidden');
+                    coverFrameGuide?.classList.remove('hidden');
                     if (scannerStatus) scannerStatus.textContent = 'Camera active. Align the cover, then capture.';
                     if (captureButton) captureButton.textContent = 'Take Photo';
                 } catch (error) {
                     stopCoverCamera();
+                    coverFrameGuide?.classList.add('hidden');
                     coverPreview?.classList.remove('hidden');
                     if (scannerStatus) scannerStatus.textContent = error.name === 'NotAllowedError' ? 'Camera permission denied. Choose an image file instead.' : `Camera unavailable: ${error.message || error.name}`;
                 }
             };
 
             window.captureCoverPhoto = () => {
-                if (!coverVideo?.videoWidth || !coverVideo.videoHeight) return;
-                coverCanvas.width = Math.min(coverVideo.videoWidth, 1600);
-                coverCanvas.height = Math.round(coverVideo.videoHeight * (coverCanvas.width / coverVideo.videoWidth));
-                coverCanvas.getContext('2d').drawImage(coverVideo, 0, 0, coverCanvas.width, coverCanvas.height);
+                if (!coverVideo?.videoWidth || !coverVideo.videoHeight || !coverCanvas) return;
+
+                const sourceWidth = coverVideo.videoWidth;
+                const sourceHeight = coverVideo.videoHeight;
+                const portraitRatio = 3 / 4;
+                const sourceRatio = sourceWidth / sourceHeight;
+                let cropWidth = sourceWidth;
+                let cropHeight = sourceHeight;
+                let sourceX = 0;
+                let sourceY = 0;
+
+                if (sourceRatio > portraitRatio) {
+                    cropWidth = sourceHeight * portraitRatio;
+                    sourceX = (sourceWidth - cropWidth) / 2;
+                } else {
+                    cropHeight = sourceWidth / portraitRatio;
+                    sourceY = (sourceHeight - cropHeight) / 2;
+                }
+
+                const outputScale = Math.min(1, 1600 / cropWidth, 2133 / cropHeight);
+                coverCanvas.width = Math.round(cropWidth * outputScale);
+                coverCanvas.height = Math.round(cropHeight * outputScale);
+                coverCanvas.getContext('2d').drawImage(
+                    coverVideo,
+                    sourceX,
+                    sourceY,
+                    cropWidth,
+                    cropHeight,
+                    0,
+                    0,
+                    coverCanvas.width,
+                    coverCanvas.height,
+                );
                 coverCanvas.toBlob(blob => {
                     if (!blob || !coverFileInput) return;
                     stopCoverCamera();

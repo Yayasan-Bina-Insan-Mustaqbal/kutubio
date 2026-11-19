@@ -8,6 +8,7 @@ use App\Models\Book;
 use App\Models\CaptureSession;
 use App\Models\MetadataRevision;
 use App\Models\User;
+use App\Services\BookCoverStorage;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Livewire;
@@ -37,6 +38,33 @@ class BookCoverDisplayTest extends TestCase
             ->assertSee('alt="Book cover"', false);
 
         $this->assertSame($path, $book->coverImagePath());
+    }
+
+    public function test_edit_page_upload_persists_cover_path_and_replaces_old_file(): void
+    {
+        Storage::fake('public');
+        $oldPath = 'book-covers/existing/old-cover.jpg';
+        Storage::disk('public')->put($oldPath, 'old cover');
+        $book = Book::factory()->create([
+            'title' => 'Book with replaceable cover',
+            'cover_image_path' => $oldPath,
+        ]);
+        $this->actingAs(User::factory()->create());
+
+        $newPath = 'book-covers/'.$book->public_id.'/replacement.png';
+        Storage::disk('public')->put($newPath, 'new cover');
+        $component = Livewire::test(EditBook::class, ['record' => $book->getRouteKey()]);
+        $component->fillForm(['title' => 'Book with replaceable cover']);
+        $component->set('data.cover_image_path', [$newPath]);
+        $component->call('save')->assertHasNoErrors()->assertNotified();
+
+        $book->refresh();
+        $this->assertStringStartsWith('book-covers/'.$book->public_id.'/', $book->cover_image_path);
+        $this->assertTrue(Storage::disk('public')->exists($book->cover_image_path));
+        $this->assertFalse(Storage::disk('public')->exists($oldPath));
+
+        Livewire::test(EditBook::class, ['record' => $book->getRouteKey()])
+            ->assertFormSet(['cover_image_path' => $book->cover_image_path]);
     }
 
     public function test_edit_page_renders_cover_and_placeholder_when_no_cover_exists(): void
