@@ -10,6 +10,7 @@ use App\Models\MetadataRevision;
 use App\Models\User;
 use App\Services\BookCoverStorage;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Livewire;
 use Tests\TestCase;
@@ -68,14 +69,36 @@ class BookCoverDisplayTest extends TestCase
     }
 
     public function test_edit_page_renders_cover_and_placeholder_when_no_cover_exists(): void
+        {
+            Storage::fake('public');
+            $book = Book::factory()->create(['title' => 'Coverless book']);
+            $this->actingAs(User::factory()->create());
+
+            Livewire::test(EditBook::class, ['record' => $book->getRouteKey()])
+                ->assertSee('src="http://localhost/images/book-cover-placeholder.svg"', false)
+                ->assertSee('alt="No book cover available"', false)
+                ->assertSee('Upload or replace cover');
+        }
+
+    public function test_edit_page_upload_persists_actual_uploaded_cover_file(): void
     {
         Storage::fake('public');
-        $book = Book::factory()->create(['title' => 'Coverless book']);
+        $book = Book::factory()->create([
+            'title' => 'Book with actual file upload',
+        ]);
         $this->actingAs(User::factory()->create());
 
-        Livewire::test(EditBook::class, ['record' => $book->getRouteKey()])
-            ->assertSee('src="http://localhost/images/book-cover-placeholder.svg"', false)
-            ->assertSee('alt="No book cover available"', false)
-            ->assertSee('Upload or replace cover');
+        $upload = UploadedFile::fake()->createWithContent('cover.png', 'fake image bytes');
+
+        $component = Livewire::test(EditBook::class, ['record' => $book->getRouteKey()]);
+        $component->fillForm(['title' => 'Book with actual file upload']);
+        $component->set('data.cover_image_path', $upload);
+        $component->call('save')->assertHasNoErrors()->assertNotified();
+
+        $book->refresh();
+
+        $this->assertNotNull($book->cover_image_path);
+        $this->assertStringStartsWith('book-covers/'.$book->public_id.'/', $book->cover_image_path);
+        $this->assertTrue(Storage::disk('public')->exists($book->cover_image_path));
     }
 }

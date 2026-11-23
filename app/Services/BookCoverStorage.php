@@ -18,12 +18,15 @@ class BookCoverStorage
         $name = Str::ulid() . '.' . $extension;
         $path = $directory . '/' . $name;
 
+        Storage::disk('public')->makeDirectory($directory, 0775, true, true);
+
         if ($upload instanceof TemporaryUploadedFile) {
             $stream = $upload->readStream();
-            $stored = Storage::disk('public')->put($path, $stream, ['visibility' => 'public']);
-            if (is_resource($stream)) {
-                fclose($stream);
+            if (! is_resource($stream)) {
+                throw new RuntimeException('Unable to open the uploaded book cover for reading.');
             }
+            $stored = Storage::disk('public')->put($path, $stream, ['visibility' => 'public']);
+            fclose($stream);
         } else {
             $stored = $upload->storePubliclyAs($directory, $name, 'public');
             $path = $stored ?: $path;
