@@ -579,15 +579,6 @@ class CaptureBook extends Page
             ? Book::query()->findOrFail($matchedBookId)->public_id
             : (string) Str::ulid();
 
-        Log::info('CaptureBook submit cover flow', [
-            'book_id' => $matchedBookId,
-            'public_id' => $targetBookPublicId,
-            'was_existing_book' => $wasExistingBook,
-            'cover_draft_class' => get_debug_type($coverDraft),
-            'cover_draft_exists' => $coverDraft ? ($coverDraft->exists() ? 'true' : 'false') : 'n/a',
-            'cover_draft_real_path' => $coverDraft ? ($coverDraft->getRealPath() ?? 'null') : 'n/a',
-        ]);
-
         if ($coverDraft) {
             $bookForCover = new Book();
             $bookForCover->public_id = $targetBookPublicId;
@@ -595,16 +586,7 @@ class CaptureBook extends Page
                 $existingBook = Book::query()->findOrFail($matchedBookId);
                 $oldCoverPath = $existingBook->cover_image_path;
             }
-            Log::info('CaptureBook storing cover draft', [
-                'book_id' => $matchedBookId,
-                'target_public_id' => $targetBookPublicId,
-                'old_cover_path' => $oldCoverPath,
-            ]);
             $newCoverPath = app(BookCoverStorage::class)->storeDraft($bookForCover, $coverDraft);
-            Log::info('CaptureBook cover draft stored', [
-                'book_id' => $matchedBookId,
-                'new_cover_path' => $newCoverPath,
-            ]);
         }
 
         try {
@@ -656,21 +638,8 @@ class CaptureBook extends Page
         }
 
         if ($newCoverPath && filled($oldCoverPath) && str_starts_with($oldCoverPath, 'book-covers/')) {
-            Log::info('CaptureBook removing old cover', [
-                'book_id' => $matchedBookId,
-                'old_cover' => $oldCoverPath,
-                'new_cover' => $newCoverPath,
-            ]);
             app(BookCoverStorage::class)->remove($oldCoverPath);
         }
-
-        Log::info('CaptureBook submit complete', [
-            'book_id' => $book->id,
-            'public_id' => $book->public_id,
-            'final_cover_image_path' => $book->cover_image_path,
-            'new_cover_path' => $newCoverPath,
-            'old_cover_path' => $oldCoverPath,
-        ]);
 
         Notification::make()
             ->title($wasExistingBook ? 'Book updated' : 'Book saved')
