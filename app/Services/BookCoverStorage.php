@@ -18,16 +18,8 @@ class BookCoverStorage
         $name = Str::ulid() . '.' . $extension;
         $path = $directory . '/' . $name;
 
-        if ($upload instanceof TemporaryUploadedFile) {
-            $stream = $upload->readStream();
-            $stored = Storage::disk('public')->put($path, $stream, ['visibility' => 'public']);
-            if (is_resource($stream)) {
-                fclose($stream);
-            }
-        } else {
-            $stored = $upload->storePubliclyAs($directory, $name, 'public');
-            $path = $stored ?: $path;
-        }
+        $stored = Storage::disk('public')->putFileAs($directory, $upload, $name, ['visibility' => 'public']);
+        $path = $stored ?: $path;
 
         if (! $stored) {
             throw new RuntimeException('Unable to store the uploaded book cover.');
