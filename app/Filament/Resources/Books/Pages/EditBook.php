@@ -9,6 +9,7 @@ use Filament\Actions\DeleteAction;
 use Filament\Actions\ViewAction;
 use Filament\Resources\Pages\EditRecord;
 use Filament\Notifications\Notification;
+use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
 
 class EditBook extends EditRecord
 {
@@ -27,7 +28,20 @@ class EditBook extends EditRecord
     protected function mutateFormDataBeforeSave(array $data): array
     {
         $coverState = $data['cover_image_path'] ?? null;
-        $newCoverPath = collect(is_array($coverState) ? $coverState : [$coverState])
+        $items = is_array($coverState) ? $coverState : [$coverState];
+
+        // Store newly uploaded temporary file (from Livewire file input).
+        foreach ($items as $item) {
+            if ($item instanceof TemporaryUploadedFile) {
+                $this->oldCoverPath = $this->record->cover_image_path;
+                $data['cover_image_path'] = app(BookCoverStorage::class)->storeDraft($this->record, $item);
+
+                return $data;
+            }
+        }
+
+        // Keep already-stored path under the book's folder, otherwise preserve current path.
+        $newCoverPath = collect($items)
             ->filter(fn (mixed $path): bool => is_string($path)
                 && str_starts_with($path, 'book-covers/'.$this->record->public_id.'/')
                 && $path !== $this->record->cover_image_path)
