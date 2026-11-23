@@ -9,6 +9,7 @@ use Filament\Actions\DeleteAction;
 use Filament\Actions\ViewAction;
 use Filament\Resources\Pages\EditRecord;
 use Filament\Notifications\Notification;
+use Illuminate\Support\Facades\Log;
 use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
 
 class EditBook extends EditRecord
@@ -30,11 +31,32 @@ class EditBook extends EditRecord
         $coverState = $data['cover_image_path'] ?? null;
         $items = is_array($coverState) ? $coverState : [$coverState];
 
+        Log::info('EditBook mutateFormDataBeforeSave cover_state', [
+            'book_id' => $this->record->id,
+            'public_id' => $this->record->public_id,
+            'current_cover' => $this->record->cover_image_path,
+            'cover_state' => $coverState,
+            'items_count' => count($items),
+            'items_types' => array_map(fn ($i) => get_debug_type($i), $items),
+        ]);
+
         // Store newly uploaded temporary file (from Livewire file input).
         foreach ($items as $item) {
             if ($item instanceof TemporaryUploadedFile) {
+                Log::info('EditBook storing temporary upload', [
+                    'book_id' => $this->record->id,
+                    'file_class' => get_class($item),
+                    'file_exists' => $item->exists(),
+                    'file_path' => $item->getRealPath(),
+                ]);
+
                 $this->oldCoverPath = $this->record->cover_image_path;
                 $data['cover_image_path'] = app(BookCoverStorage::class)->storeDraft($this->record, $item);
+
+                Log::info('EditBook stored temporary upload result', [
+                    'book_id' => $this->record->id,
+                    'new_cover' => $data['cover_image_path'],
+                ]);
 
                 return $data;
             }
@@ -51,10 +73,21 @@ class EditBook extends EditRecord
             $this->oldCoverPath = $this->record->cover_image_path;
             $data['cover_image_path'] = $newCoverPath;
 
+            Log::info('EditBook using existing stored path', [
+                'book_id' => $this->record->id,
+                'new_cover' => $newCoverPath,
+                'old_cover' => $this->oldCoverPath,
+            ]);
+
             return $data;
         }
 
         $data['cover_image_path'] = $this->record->cover_image_path;
+
+        Log::info('EditBook preserving current cover (no new upload)', [
+            'book_id' => $this->record->id,
+            'cover' => $data['cover_image_path'],
+        ]);
 
         return $data;
     }
@@ -64,6 +97,11 @@ class EditBook extends EditRecord
         if (filled($this->oldCoverPath)
             && $this->oldCoverPath !== $this->record->cover_image_path
             && str_starts_with($this->oldCoverPath, 'book-covers/')) {
+            Log::info('EditBook afterSave removing old cover', [
+                'book_id' => $this->record->id,
+                'old_cover' => $this->oldCoverPath,
+                'new_cover' => $this->record->cover_image_path,
+            ]);
             app(BookCoverStorage::class)->remove($this->oldCoverPath);
         }
 
