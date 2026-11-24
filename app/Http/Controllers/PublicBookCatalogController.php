@@ -78,8 +78,8 @@ class PublicBookCatalogController extends Controller
                 'results' => view('catalog.partials.results', compact('books'))->render(),
                 'suggestions' => $this->formatSuggestions($suggestions),
                 'count' => $books->total(),
-                'next' => $books->nextPageUrl(),
-                'previous' => $books->previousPageUrl(),
+                'next' => $this->stripFragmentFromUrl($books->nextPageUrl()),
+                'previous' => $this->stripFragmentFromUrl($books->previousPageUrl()),
             ]);
         }
 
@@ -127,6 +127,27 @@ class PublicBookCatalogController extends Controller
             'isbn' => $book->isbn13,
             'url' => route('catalog.books.show', $book->public_id),
         ])->all();
+    }
+
+    private function stripFragmentFromUrl(?string $url): ?string
+    {
+        if (! $url) {
+            return null;
+        }
+
+        $parts = parse_url($url);
+        $query = isset($parts['query']) ? $parts['query'] : '';
+        parse_str($query, $params);
+        unset($params['fragment']);
+
+        $base = isset($parts['scheme']) ? $parts['scheme'].'://'.$parts['host'] : '/';
+        $base .= isset($parts['path']) ? $parts['path'] : '';
+
+        if (! empty($params)) {
+            $base .= '?'.http_build_query($params);
+        }
+
+        return $base;
     }
 
     public function show(Book $book): View

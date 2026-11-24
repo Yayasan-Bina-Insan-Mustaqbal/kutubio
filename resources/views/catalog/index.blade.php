@@ -230,7 +230,7 @@
                 event.preventDefault();
                 const pageUrl = new URL(link.href);
                 refreshCatalog({ immediate: true, page: Number(pageUrl.searchParams.get('page') ?? 1) });
-            }, { once: true });
+            });
         });
     };
     const refreshCatalog = ({ immediate = false, page = 1, updateUrl = true } = {}) => {
