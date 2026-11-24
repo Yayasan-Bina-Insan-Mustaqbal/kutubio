@@ -225,19 +225,19 @@
         } else closeSuggestions();
     };
     const bindPagination = () => {
-        results.querySelectorAll('.pagination a').forEach(link => {
-            link.addEventListener('click', event => {
-                event.preventDefault();
-                const pageUrl = new URL(link.href);
-                refreshCatalog({ immediate: true, page: Number(pageUrl.searchParams.get('page') ?? 1) });
-            });
+        results.addEventListener('click', event => {
+            const link = event.target.closest('.pagination a');
+            if (!link) return;
+            if (event.ctrlKey || event.metaKey || event.shiftKey || event.button === 1) return;
+            event.preventDefault();
+            const pageUrl = new URL(link.href);
+            refreshCatalog({ immediate: true, page: Number(pageUrl.searchParams.get('page') ?? 1) });
         });
     };
     const refreshCatalog = ({ immediate = false, page = 1, updateUrl = true } = {}) => {
         if (pendingTimer !== null) clearTimeout(pendingTimer);
         const currentSequence = ++requestSequence;
         const data = new FormData(form);
-        data.set('fragment', '1');
         if (page > 1) data.set('page', String(page));
         else data.delete('page');
 
@@ -369,6 +369,11 @@
             if (!categoryRoot.contains(event.target)) closeCategoryMenu();
         });
     }
+
+    window.addEventListener('popstate', () => {
+        const url = new URL(window.location.href);
+        refreshCatalog({ immediate: true, page: Number(url.searchParams.get('page') ?? 1), updateUrl: false });
+    });
 
     bindPagination();
 })();

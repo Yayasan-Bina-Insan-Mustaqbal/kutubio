@@ -64,7 +64,7 @@ class PublicBookCatalogController extends Controller
             default => $query->orderBy('title')->orderBy('id'),
         };
 
-        $books = $query->paginate(24)->withQueryString();
+        $books = $query->paginate(24)->appends($request->except('fragment'));
         $books->getCollection()->each(function (Book $book): void {
             $coverPath = $book->publicCoverImagePath();
             $book->setAttribute('public_cover_url', $coverPath
@@ -73,14 +73,14 @@ class PublicBookCatalogController extends Controller
         });
         $categories = Category::query()->orderBy('sort_order')->orderBy('code')->get(['id', 'code', 'label']);
 
-        if ($request->boolean('fragment')) {
+        if ($request->ajax()) {
             return response()->json([
                 'results' => view('catalog.partials.results', compact('books'))->render(),
                 'suggestions' => $this->formatSuggestions($suggestions),
                 'count' => $books->total(),
                 'next' => $this->stripFragmentFromUrl($books->nextPageUrl()),
                 'previous' => $this->stripFragmentFromUrl($books->previousPageUrl()),
-            ]);
+            ])->header('Vary', 'X-Requested-With');
         }
 
         return view('catalog.index', [
@@ -94,7 +94,7 @@ class PublicBookCatalogController extends Controller
                 'newest' => 'Recently added',
                 'available' => 'Most available',
             ],
-        ]);
+        ])->withHeaders(['Vary' => 'X-Requested-With']);
     }
 
     private function searchSuggestions(string $searchTerm): Collection
