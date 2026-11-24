@@ -4,7 +4,7 @@
 @else
     <div class="grid">
         @foreach ($books as $book)
-            @php($coverUrl = $book->public_cover_url)
+            @php($coverUrl = $book->coverThumbnailUrl() ?? $book->public_cover_url)
             <a class="card" href="{{ route('catalog.books.show', $book->public_id) }}">
                 <div class="cover">
                     <img src="{{ $coverUrl ?: asset('images/book-cover-placeholder.svg') }}" alt="Book cover: {{ $book->title }}" loading="lazy">

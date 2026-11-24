@@ -2,16 +2,16 @@
 
 namespace App\Models;
 
+use App\Jobs\FetchBookMetadataJob;
 use Database\Factories\BookFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
-
-use Illuminate\Database\Eloquent\SoftDeletes;
 
 #[Fillable(['title', 'subtitle', 'authors_display', 'author_name_style', 'isbn13', 'metadata_lookup_attempted_at', 'cover_image_path', 'publisher', 'page_count', 'synopsis', 'category_id', 'approved_metadata_revision_id', 'deletion_reason'])]
 class Book extends Model
@@ -27,7 +27,7 @@ class Book extends Model
 
         static::created(function (Book $book): void {
             if ($book->isbn13 && ! $book->metadata_lookup_attempted_at) {
-                \App\Jobs\FetchBookMetadataJob::dispatch($book);
+                FetchBookMetadataJob::dispatch($book);
             }
         });
 
@@ -42,7 +42,6 @@ class Book extends Model
             'metadata_lookup_attempted_at' => 'datetime',
         ];
     }
-
 
     public function category(): BelongsTo
     {
@@ -77,7 +76,7 @@ class Book extends Model
     private function promoteLegacyCaptureCover(int $captureSessionId, string $sourcePath): ?string
     {
         $extension = pathinfo($sourcePath, PATHINFO_EXTENSION) ?: 'jpg';
-        $destinationPath = 'book-covers/' . $this->public_id . '/capture-' . $captureSessionId . '.' . $extension;
+        $destinationPath = 'book-covers/'.$this->public_id.'/capture-'.$captureSessionId.'.'.$extension;
         $disk = Storage::disk('public');
 
         if (! $disk->exists($destinationPath) && ! $disk->copy($sourcePath, $destinationPath)) {
@@ -101,7 +100,35 @@ class Book extends Model
     {
         $path = $this->publicCoverImagePath();
 
-        return $path ? route('storage.public', ['path' => $path]) : null;
+        if (! $path) {
+            return null;
+        }
+
+        $url = route('storage.public', ['path' => $path]);
+
+        if (Storage::disk('public')->exists($path)) {
+            $url .= '?v='.filemtime(Storage::disk('public')->path($path));
+        }
+
+        return $url;
+    }
+
+    public function coverThumbnailUrl(): ?string
+    {
+        $thumbPath = 'book-covers/'.$this->public_id.'/thumb.webp';
+
+        if (! Storage::disk('public')->exists($thumbPath)) {
+            $thumbPath = 'book-covers/'.$this->public_id.'/thumb.jpg';
+        }
+
+        if (! Storage::disk('public')->exists($thumbPath)) {
+            return null;
+        }
+
+        $url = route('storage.public', ['path' => $thumbPath]);
+        $url .= '?v='.filemtime(Storage::disk('public')->path($thumbPath));
+
+        return $url;
     }
 
     /**

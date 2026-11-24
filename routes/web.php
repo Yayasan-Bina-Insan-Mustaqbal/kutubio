@@ -12,7 +12,15 @@ Route::get('/public-files/{path}', function (string $path) {
     abort_unless(str_starts_with($path, 'book-covers/'), 404);
     abort_unless(Storage::disk('public')->exists($path), 404);
 
-    return Storage::disk('public')->response($path);
+    $contents = Storage::disk('public')->get($path);
+    $mime = Storage::disk('public')->mimeType($path) ?: 'application/octet-stream';
+
+    return response()->stream(function () use ($contents): void {
+        echo $contents;
+    }, 200, [
+        'Content-Type' => $mime,
+        'Cache-Control' => 'public, max-age=31536000, immutable',
+    ]);
 })->where('path', '.*')->name('storage.public');
 
 Route::middleware(['auth', 'verified'])->group(function () {

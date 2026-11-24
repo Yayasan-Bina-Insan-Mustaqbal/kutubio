@@ -72,7 +72,12 @@ class PublicBookCatalogTest extends TestCase
             'category_id' => $programming->id,
         ]);
 
-        $fragment = $this->get(route('home', ['q' => 'Ada Author', 'fragment' => 1]));
+        $this->withHeaders([
+            'X-Requested-With' => 'XMLHttpRequest',
+            'Accept' => 'application/json',
+        ]);
+
+        $fragment = $this->get(route('home', ['q' => 'Ada Author']));
         $fragment->assertOk()
             ->assertJsonPath('count', 1)
             ->assertJsonPath('suggestions.0.title', 'Zulu Cooking Handbook')
@@ -82,13 +87,13 @@ class PublicBookCatalogTest extends TestCase
         $this->assertStringNotContainsString('Alpha Cooking Guide', $fragment->json('results'));
         $this->assertStringNotContainsString('Grace Writer', $fragment->json('results'));
 
-        $filteredFragment = $this->get(route('home', ['q' => 'Ada Author', 'fragment' => 1, 'category' => $programming->id]));
+        $filteredFragment = $this->get(route('home', ['q' => 'Ada Author', 'category' => $programming->id]));
         $filteredFragment->assertOk()
             ->assertJsonPath('count', 0)
             ->assertJsonPath('suggestions.0.title', 'Zulu Cooking Handbook');
         $this->assertStringNotContainsString('Zulu Cooking Handbook', $filteredFragment->json('results'));
 
-        $this->get(route('home', ['q' => 'ada author', 'fragment' => 1]))
+        $this->get(route('home', ['q' => 'ada author']))
             ->assertOk()
             ->assertJsonPath('count', 1)
             ->assertJsonPath('suggestions.0.title', 'Zulu Cooking Handbook');
@@ -98,7 +103,7 @@ class PublicBookCatalogTest extends TestCase
             ->assertSee('Zulu Cooking Handbook')
             ->assertDontSee('Alpha Cooking Guide');
 
-        $this->get(route('home', ['q' => 'Ada Author', 'available' => '1', 'sort' => 'newest', 'fragment' => 1]))
+        $this->get(route('home', ['q' => 'Ada Author', 'available' => '1', 'sort' => 'newest']))
             ->assertOk()
             ->assertJsonPath('count', 1)
             ->assertJsonPath('next', null)
@@ -133,12 +138,16 @@ class PublicBookCatalogTest extends TestCase
         ]);
         $book->copies()->create(['status' => 'available']);
 
+        $this->withHeaders([
+            'X-Requested-With' => 'XMLHttpRequest',
+            'Accept' => 'application/json',
+        ]);
+
         $response = $this->get(route('home', [
             'q' => 'Cook Author',
             'category' => $category->id,
             'available' => 1,
             'sort' => 'newest',
-            'fragment' => 1,
         ]));
 
         $response->assertOk()
@@ -146,7 +155,7 @@ class PublicBookCatalogTest extends TestCase
             ->assertJsonPath('suggestions.0.url', route('catalog.books.show', $book->public_id))
             ->assertJsonPath('results', fn (string $html): bool => str_contains($html, 'Matching live result') && str_contains($html, '1 copy available'));
 
-        $emptyResponse = $this->get(route('home', ['q' => 'Not found', 'fragment' => 1]));
+        $emptyResponse = $this->get(route('home', ['q' => 'Not found']));
         $emptyResponse->assertOk()->assertJsonPath('count', 0)->assertJsonCount(0, 'suggestions');
         $this->assertStringContainsString('No books match these search filters.', $emptyResponse->json('results'));
     }
